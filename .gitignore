@@ -101,15 +101,33 @@ coverage/
 .next-cache
 
 ##################################################
-# PYTHON (Flask / FastAPI / Django)
+# PYTHON & FRAMEWORKS (Flask, FastAPI, Django, etc.)
 ##################################################
-
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.py,cover
+*.py[cod]
+*$py.class
 *.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+poetry.lock
+uv.lock
+.uv/
 
 .python-version
 
@@ -118,9 +136,7 @@ pip-delete-this-directory.txt
 
 # virtualenv
 venv/
-env/
 ENV/
-.venv/
 
 # pytest
 .pytest_cache/
@@ -133,18 +149,16 @@ ENV/
 coverage.xml
 htmlcov/
 
-# build artifacts
-build/
-dist/
-*.egg-info/
-.eggs/
+# Flask & FastAPI
+.flaskenv
+instance/
+.cache/
 
-##################################################
-# DJANGO
-##################################################
-
+# Django
+local_settings.py
 db.sqlite3
 db.sqlite3-journal
+staticfiles/
 media/
 
 ##################################################
@@ -194,6 +208,8 @@ swagger-client/
 *.db
 *.sqlite
 *.sqlite3
+*.sql
+*.dump
 
 ##################################################
 # MONGODB
@@ -233,6 +249,11 @@ test-results/
 reports/
 coverage/
 junit.xml
+.pytest_cache/
+nosetests.xml
+coverage.xml
+.coverage
+htmlcov/
 
 ##################################################
 # SECURITY
@@ -261,3 +282,9 @@ temp/
 
 release/
 artifacts/
+
+##################################################
+# USER DEFINED
+##################################################
+
+/private/**
