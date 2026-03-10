@@ -1,0 +1,15 @@
+[project]
+name = "joy-ai-manifestation-platform"
+version = "0.0.1"
+description = "Minimal proof-of-concept journaling backend using Flask and JSON storage."
+requires-python = ">=3.11"
+
+dependencies = [
+    "flask",
+    "python-dotenv"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
