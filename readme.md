@@ -1,6 +1,6 @@
 # Joy --- AI Manifestation Journal Platform
 
-![version](https://img.shields.io/badge/version-v0.0.1-alpha-orange)
+![version](https://img.shields.io/badge/version-v0.1.0-alpha-orange)
 ![status](https://img.shields.io/badge/status-proof_of_concept-lightgrey)
 
 ------------------------------------------------------------------------
@@ -28,7 +28,8 @@
 19. Contribution Guidelines\
 20. Contributors\
 21. Full Testing Analysis\
-22. License
+22. Extended Feature Ideas\
+23. License
 
 ------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@ Joy --- AI Manifestation Journal Platform
 
 Version:
 
-v0.0.1
+v0.1.0
 
 Stage:
 
@@ -230,15 +231,26 @@ For now the schema is conceptual only.
 erDiagram
 
 USERS {
-string id
+ObjectId _id
 string email
+string password_hash
+date created_at
+bool ai_enabled
+object settings
 }
 
 JOURNALS {
-string id
-string user_id
-string content
-string created_at
+ObjectId _id
+ObjectId user_id
+string kind
+string body
+date created_at
+string entry_date
+int mood
+array tags
+object ai
+array attachments
+bool encrypted
 }
 
 USERS ||--o{ JOURNALS : writes
@@ -403,6 +415,65 @@ Future versions will include:
 -   integration testing
 -   system testing
 -   load testing
+
+------------------------------------------------------------------------
+
+# Extended Feature Ideas
+
+Candidate features for future versions.
+
+## Progressive Web App
+
+Convert the frontend into an installable PWA:
+
+-   offline-first reads of past entries via service worker cache
+-   queued writes synced on reconnect via IndexedDB and Background Sync API
+-   web push notifications for weekly reviews and morning prompts
+-   installable on iOS and Android home screens
+
+## Voice Notes
+
+Audio journal entries via in-browser recording:
+
+-   capture via MediaRecorder API
+-   audio stored in S3-compatible object storage
+-   asynchronous transcription via Whisper (self-hosted or OpenAI Whisper API)
+-   transcript stored alongside the original audio file on the entry
+
+## Object Storage
+
+S3-compatible storage for binary assets:
+
+-   voice note audio files
+-   photo attachments with server-side thumbnail generation
+-   presigned URLs with short TTL for secure client access
+
+## Concrete AI Feature Set
+
+Specific AI-powered product features:
+
+-   **Per-entry tagging** — async extraction of emotion labels, named entities, and a one-line summary
+-   **Weekly review** — scheduled Sunday summary highlighting wins, recurring themes, and low-mood days
+-   **Morning prompts** — one daily reflection prompt informed by recent entry themes
+-   **CBT reframing** — opt-in alternative perspectives for high-anxiety entries (with explicit "not therapy" disclaimer)
+
+## AI Cost Tracking
+
+Observability for Anthropic API usage:
+
+-   record model, input tokens, output tokens, and USD cost per call
+-   surface monthly totals per user in the settings UI
+-   configurable daily cost cap that pauses the AI worker when exceeded
+
+## Performance Budgets
+
+Target SLOs for production readiness:
+
+-   entry create p95 < 200 ms
+-   entry list (50 items) p95 < 300 ms
+-   AI tagging worker p95 < 30 s end-to-end
+-   frontend bundle main chunk < 200 KB gzipped
+-   mobile time-to-interactive < 2 s on a mid-tier device over 4G
 
 ------------------------------------------------------------------------
 
