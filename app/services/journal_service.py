@@ -1,44 +1,55 @@
 from uuid import uuid4
-from app.utils.tools import get_storage, load_json, save_json, standard_now
+from pymongo import ReturnDocument
+from app.utils.tools import standard_now
+from app.db import get_db
+
+
+def _strip(doc: dict) -> dict:
+    doc = dict(doc)
+    doc.pop('_id', None)
+    return doc
+
 
 class JournalService:
-    def __init__(self, path: str = 'data/journals.json'):
-        self.path = get_storage(path)
+    def __init__(self, collection=None):
+        if collection is None:
+            self.collection = get_db()['journals']
+            self.collection.create_index('id', unique=True)
+        else:
+            self.collection = collection
 
     def get_all(self) -> list:
-        return load_json(self.path)
+        return [_strip(e) for e in self.collection.find()]
 
     def get_one(self, uid: str) -> dict | None:
-        return next((e for e in self.get_all() if e['id'] == uid), None)
+        e = self.collection.find_one({'id': uid})
+        return _strip(e) if e else None
 
     def create(self, title: str, content: str) -> dict:
-        entries = self.get_all()
         entry = {
             'id': str(uuid4()),
             'title': title,
             'content': content,
-            'date': standard_now()
+            'date': standard_now(),
         }
-        entries.append(entry)
-        save_json(self.path, entries)
-        return entry
+        self.collection.insert_one(entry)
+        return _strip(entry)
 
     def update(self, uid: str, title: str | None = None, content: str | None = None) -> dict | None:
-        entries = self.get_all()
-        for e in entries:
-            if e['id'] == uid:
-                if title: e['title'] = title
-                if content: e['content'] = content
-                e['date'] = standard_now()
-                save_json(self.path, entries)
-                return e
-        return None
+        patch = {}
+        if title:
+            patch['title'] = title
+        if content:
+            patch['content'] = content
+        if not patch:
+            return self.get_one(uid)
+        patch['date'] = standard_now()
+        result = self.collection.find_one_and_update(
+            {'id': uid},
+            {'$set': patch},
+            return_document=ReturnDocument.AFTER,
+        )
+        return _strip(result) if result else None
 
     def delete(self, uid: str) -> bool:
-        entries = self.get_all()
-        new = [e for e in entries if e['id'] != uid]
-        if len(new) < len(entries):
-            save_json(self.path, new)
-            return True
-        return False
-
+        return self.collection.delete_one({'id': uid}).deleted_count > 0

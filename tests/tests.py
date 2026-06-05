@@ -1,14 +1,20 @@
 import pytest
+import mongomock
 from flask import Flask
 from app.routes.journal_routes import register_journal_routes
 from app.services.journal_service import JournalService
 
 
 @pytest.fixture
-def client(tmp_path):
+def collection():
+    return mongomock.MongoClient()['joy']['journals']
+
+
+@pytest.fixture
+def client(collection):
     app = Flask(__name__)
     app.config['TESTING'] = True
-    service = JournalService(path=str(tmp_path / 'journals.json'))
+    service = JournalService(collection=collection)
     register_journal_routes(app, service=service)
     with app.test_client() as c:
         yield c
@@ -112,9 +118,9 @@ def test_delete_unknown_id_returns_404(client):
 
 # --- storage ---
 
-def test_storage_persists_across_service_instances(tmp_path):
-    path = str(tmp_path / 'journals.json')
-    s1 = JournalService(path=path)
+def test_storage_persists_across_service_instances():
+    coll = mongomock.MongoClient()['joy']['journals']
+    s1 = JournalService(collection=coll)
     entry = s1.create('Persisted', 'content')
-    s2 = JournalService(path=path)
+    s2 = JournalService(collection=coll)
     assert s2.get_one(entry['id']) is not None

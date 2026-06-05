@@ -1,16 +1,17 @@
 [project]
 name = "joy-ai-manifestation-platform"
-version = "0.1.0"
-description = "Minimal proof-of-concept journaling backend using Flask and JSON storage."
+version = "0.2.0"
+description = "Journaling backend — Flask + MongoDB."
 requires-python = ">=3.11"
 
 dependencies = [
-    "dataclasses>=0.8",
     "flask",
     "python-dotenv",
+    "pymongo",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest"
+    "pytest",
+    "mongomock",
 ]
