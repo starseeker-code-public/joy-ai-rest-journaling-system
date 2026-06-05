@@ -18,7 +18,18 @@ def register_journal_routes(app, service=None):
         data = request.json
         if not data or 'title' not in data:
             return jsonify({'error': 'Title required'}), 400
-        return jsonify(service.create(g.user_id, data['title'], data.get('content', ''))), 201
+        try:
+            entry = service.create(
+                g.user_id,
+                data['title'],
+                data.get('content', ''),
+                mood=data.get('mood'),
+                tags=data.get('tags'),
+                kind=data.get('kind'),
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        return jsonify(entry), 201
 
     @app.route('/api/journals/<uid>', methods=['GET'])
     @require_auth
@@ -29,8 +40,18 @@ def register_journal_routes(app, service=None):
     @app.route('/api/journals/<uid>', methods=['PUT'])
     @require_auth
     def update_entry(uid):
-        data = request.json
-        res = service.update(g.user_id, uid, data.get('title'), data.get('content'))
+        data = request.json or {}
+        try:
+            res = service.update(
+                g.user_id, uid,
+                title=data.get('title'),
+                content=data.get('content'),
+                mood=data.get('mood'),
+                tags=data.get('tags'),
+                kind=data.get('kind'),
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
         return jsonify(res) if res else (jsonify({'error': 'Not found'}), 404)
 
     @app.route('/api/journals/<uid>', methods=['DELETE'])

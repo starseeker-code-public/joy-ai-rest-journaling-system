@@ -191,6 +191,85 @@ def test_user_a_cannot_delete_user_b_entry(client):
     assert client.delete(f'/api/journals/{a_entry["id"]}', headers=headers_b).status_code == 404
 
 
+# --- enriched fields: defaults ---
+
+def test_create_has_default_mood_tags_kind(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'X'}, headers=auth_headers)
+    data = res.get_json()
+    assert data['mood'] is None
+    assert data['tags'] == []
+    assert data['kind'] == 'text'
+
+
+# --- enriched fields: mood ---
+
+def test_create_with_mood(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'X', 'mood': 7}, headers=auth_headers)
+    assert res.status_code == 201
+    assert res.get_json()['mood'] == 7
+
+
+def test_create_mood_out_of_range_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'title': 'X', 'mood': 0}, headers=auth_headers).status_code == 400
+    assert client.post('/api/journals', json={'title': 'X', 'mood': 11}, headers=auth_headers).status_code == 400
+
+
+def test_create_mood_non_int_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'title': 'X', 'mood': 'high'}, headers=auth_headers).status_code == 400
+    assert client.post('/api/journals', json={'title': 'X', 'mood': True}, headers=auth_headers).status_code == 400
+
+
+def test_update_mood(client, auth_headers):
+    entry = client.post('/api/journals', json={'title': 'X', 'mood': 5}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{entry["id"]}', json={'mood': 8}, headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['mood'] == 8
+
+
+def test_update_invalid_mood_returns_400(client, auth_headers):
+    entry = client.post('/api/journals', json={'title': 'X'}, headers=auth_headers).get_json()
+    assert client.put(f'/api/journals/{entry["id"]}', json={'mood': 99}, headers=auth_headers).status_code == 400
+
+
+# --- enriched fields: tags ---
+
+def test_create_with_tags(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'X', 'tags': ['work', 'urgent']}, headers=auth_headers)
+    assert res.status_code == 201
+    assert res.get_json()['tags'] == ['work', 'urgent']
+
+
+def test_create_invalid_tags_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'title': 'X', 'tags': 'work'}, headers=auth_headers).status_code == 400
+    assert client.post('/api/journals', json={'title': 'X', 'tags': [1, 2]}, headers=auth_headers).status_code == 400
+
+
+def test_update_tags(client, auth_headers):
+    entry = client.post('/api/journals', json={'title': 'X', 'tags': ['old']}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{entry["id"]}', json={'tags': ['new', 'tags']}, headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['tags'] == ['new', 'tags']
+
+
+# --- enriched fields: kind ---
+
+def test_create_with_kind(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'X', 'kind': 'voice'}, headers=auth_headers)
+    assert res.status_code == 201
+    assert res.get_json()['kind'] == 'voice'
+
+
+def test_create_invalid_kind_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'title': 'X', 'kind': 'bogus'}, headers=auth_headers).status_code == 400
+
+
+def test_update_kind(client, auth_headers):
+    entry = client.post('/api/journals', json={'title': 'X'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{entry["id"]}', json={'kind': 'summary'}, headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['kind'] == 'summary'
+
+
 # --- storage ---
 
 def test_storage_persists_across_service_instances():
