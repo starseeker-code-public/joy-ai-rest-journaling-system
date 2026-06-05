@@ -2,118 +2,193 @@ import pytest
 import mongomock
 from flask import Flask
 from app.routes.journal_routes import register_journal_routes
+from app.routes.auth_routes import register_auth_routes
 from app.services.journal_service import JournalService
+from app.services.user_service import UserService
 
 
 @pytest.fixture
-def collection():
-    return mongomock.MongoClient()['joy']['journals']
-
-
-@pytest.fixture
-def client(collection):
+def app():
+    mongo = mongomock.MongoClient()['joy']
     app = Flask(__name__)
     app.config['TESTING'] = True
-    service = JournalService(collection=collection)
-    register_journal_routes(app, service=service)
+    user_service = UserService(collection=mongo['users'])
+    journal_service = JournalService(collection=mongo['journals'])
+    register_auth_routes(app, user_service=user_service)
+    register_journal_routes(app, service=journal_service)
+    return app
+
+
+@pytest.fixture
+def client(app):
     with app.test_client() as c:
         yield c
 
 
+def _register_and_login(client, email='a@example.com', password='secret123'):
+    client.post('/auth/register', json={'email': email, 'password': password})
+    token = client.post('/auth/login', json={'email': email, 'password': password}).get_json()['token']
+    return {'Authorization': f'Bearer {token}'}
+
+
+@pytest.fixture
+def auth_headers(client):
+    return _register_and_login(client)
+
+
+# --- auth gate ---
+
+def test_list_without_token_returns_401(client):
+    assert client.get('/api/journals').status_code == 401
+
+
+def test_create_without_token_returns_401(client):
+    assert client.post('/api/journals', json={'title': 'X'}).status_code == 401
+
+
+def test_get_one_without_token_returns_401(client):
+    assert client.get('/api/journals/some-id').status_code == 401
+
+
+def test_update_without_token_returns_401(client):
+    assert client.put('/api/journals/some-id', json={'title': 'X'}).status_code == 401
+
+
+def test_delete_without_token_returns_401(client):
+    assert client.delete('/api/journals/some-id').status_code == 401
+
+
+def test_invalid_token_returns_401(client):
+    assert client.get('/api/journals', headers={'Authorization': 'Bearer bad.token'}).status_code == 401
+
+
 # --- list ---
 
-def test_list_empty(client):
-    res = client.get('/api/journals')
+def test_list_empty(client, auth_headers):
+    res = client.get('/api/journals', headers=auth_headers)
     assert res.status_code == 200
     assert res.get_json() == []
 
 
-def test_list_contains_created_entries(client):
-    client.post('/api/journals', json={'title': 'A'})
-    client.post('/api/journals', json={'title': 'B'})
-    data = client.get('/api/journals').get_json()
+def test_list_contains_created_entries(client, auth_headers):
+    client.post('/api/journals', json={'title': 'A'}, headers=auth_headers)
+    client.post('/api/journals', json={'title': 'B'}, headers=auth_headers)
+    data = client.get('/api/journals', headers=auth_headers).get_json()
     assert len(data) == 2
     assert {e['title'] for e in data} == {'A', 'B'}
 
 
 # --- create ---
 
-def test_create_returns_201_with_all_fields(client):
-    res = client.post('/api/journals', json={'title': 'Day 1', 'content': 'Good day'})
+def test_create_returns_201_with_all_fields(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'Day 1', 'content': 'Good day'}, headers=auth_headers)
     assert res.status_code == 201
     data = res.get_json()
     assert data['title'] == 'Day 1'
     assert data['content'] == 'Good day'
     assert 'id' in data
     assert 'date' in data
+    assert 'user_id' in data
 
 
-def test_create_content_defaults_to_empty(client):
-    res = client.post('/api/journals', json={'title': 'No content'})
+def test_create_content_defaults_to_empty(client, auth_headers):
+    res = client.post('/api/journals', json={'title': 'No content'}, headers=auth_headers)
     assert res.status_code == 201
     assert res.get_json()['content'] == ''
 
 
-def test_create_missing_title_returns_400(client):
-    assert client.post('/api/journals', json={'content': 'No title'}).status_code == 400
+def test_create_missing_title_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'content': 'No title'}, headers=auth_headers).status_code == 400
 
 
-def test_create_empty_body_returns_400(client):
-    assert client.post('/api/journals', json={}).status_code == 400
+def test_create_empty_body_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={}, headers=auth_headers).status_code == 400
 
 
 # --- get single ---
 
-def test_get_one_returns_entry(client):
-    created = client.post('/api/journals', json={'title': 'Entry'}).get_json()
-    res = client.get(f'/api/journals/{created["id"]}')
+def test_get_one_returns_entry(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'Entry'}, headers=auth_headers).get_json()
+    res = client.get(f'/api/journals/{created["id"]}', headers=auth_headers)
     assert res.status_code == 200
     assert res.get_json()['id'] == created['id']
 
 
-def test_get_one_unknown_id_returns_404(client):
-    assert client.get('/api/journals/nonexistent-id').status_code == 404
+def test_get_one_unknown_id_returns_404(client, auth_headers):
+    assert client.get('/api/journals/nonexistent-id', headers=auth_headers).status_code == 404
 
 
 # --- update ---
 
-def test_update_title_and_content(client):
-    created = client.post('/api/journals', json={'title': 'Old', 'content': 'Old'}).get_json()
-    res = client.put(f'/api/journals/{created["id"]}', json={'title': 'New', 'content': 'New'})
+def test_update_title_and_content(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'Old', 'content': 'Old'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{created["id"]}', json={'title': 'New', 'content': 'New'}, headers=auth_headers)
     assert res.status_code == 200
     data = res.get_json()
     assert data['title'] == 'New'
     assert data['content'] == 'New'
 
 
-def test_update_partial_preserves_other_fields(client):
-    created = client.post('/api/journals', json={'title': 'Keep', 'content': 'Keep'}).get_json()
-    res = client.put(f'/api/journals/{created["id"]}', json={'title': 'Changed'})
+def test_update_partial_preserves_other_fields(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'Keep', 'content': 'Keep'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{created["id"]}', json={'title': 'Changed'}, headers=auth_headers)
     assert res.status_code == 200
     data = res.get_json()
     assert data['title'] == 'Changed'
     assert data['content'] == 'Keep'
 
 
-def test_update_unknown_id_returns_404(client):
-    assert client.put('/api/journals/nonexistent-id', json={'title': 'X'}).status_code == 404
+def test_update_unknown_id_returns_404(client, auth_headers):
+    assert client.put('/api/journals/nonexistent-id', json={'title': 'X'}, headers=auth_headers).status_code == 404
 
 
 # --- delete ---
 
-def test_delete_returns_204(client):
-    created = client.post('/api/journals', json={'title': 'Bye'}).get_json()
-    assert client.delete(f'/api/journals/{created["id"]}').status_code == 204
+def test_delete_returns_204(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'Bye'}, headers=auth_headers).get_json()
+    assert client.delete(f'/api/journals/{created["id"]}', headers=auth_headers).status_code == 204
 
 
-def test_delete_entry_is_gone(client):
-    created = client.post('/api/journals', json={'title': 'Gone'}).get_json()
-    client.delete(f'/api/journals/{created["id"]}')
-    assert client.get(f'/api/journals/{created["id"]}').status_code == 404
+def test_delete_entry_is_gone(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'Gone'}, headers=auth_headers).get_json()
+    client.delete(f'/api/journals/{created["id"]}', headers=auth_headers)
+    assert client.get(f'/api/journals/{created["id"]}', headers=auth_headers).status_code == 404
 
 
-def test_delete_unknown_id_returns_404(client):
-    assert client.delete('/api/journals/nonexistent-id').status_code == 404
+def test_delete_unknown_id_returns_404(client, auth_headers):
+    assert client.delete('/api/journals/nonexistent-id', headers=auth_headers).status_code == 404
+
+
+# --- ownership isolation ---
+
+def test_user_a_cannot_list_user_b_entries(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    client.post('/api/journals', json={'title': 'A-private'}, headers=headers_a)
+    res = client.get('/api/journals', headers=headers_b)
+    assert res.status_code == 200
+    assert res.get_json() == []
+
+
+def test_user_a_cannot_read_user_b_entry(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a_entry = client.post('/api/journals', json={'title': 'A-private'}, headers=headers_a).get_json()
+    assert client.get(f'/api/journals/{a_entry["id"]}', headers=headers_b).status_code == 404
+
+
+def test_user_a_cannot_update_user_b_entry(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a_entry = client.post('/api/journals', json={'title': 'A-private'}, headers=headers_a).get_json()
+    assert client.put(f'/api/journals/{a_entry["id"]}', json={'title': 'hacked'}, headers=headers_b).status_code == 404
+
+
+def test_user_a_cannot_delete_user_b_entry(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a_entry = client.post('/api/journals', json={'title': 'A-private'}, headers=headers_a).get_json()
+    assert client.delete(f'/api/journals/{a_entry["id"]}', headers=headers_b).status_code == 404
 
 
 # --- storage ---
@@ -121,6 +196,6 @@ def test_delete_unknown_id_returns_404(client):
 def test_storage_persists_across_service_instances():
     coll = mongomock.MongoClient()['joy']['journals']
     s1 = JournalService(collection=coll)
-    entry = s1.create('Persisted', 'content')
+    entry = s1.create('user-1', 'Persisted', 'content')
     s2 = JournalService(collection=coll)
-    assert s2.get_one(entry['id']) is not None
+    assert s2.get_one('user-1', entry['id']) is not None
