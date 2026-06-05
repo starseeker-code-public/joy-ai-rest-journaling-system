@@ -9,6 +9,7 @@ dependencies = [
     "python-dotenv",
     "pymongo",
     "argon2-cffi",
+    "pyjwt",
 ]
 
 [project.optional-dependencies]

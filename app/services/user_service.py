@@ -37,8 +37,14 @@ class UserService:
         return _strip(user)
 
     def get_by_email(self, email: str) -> dict | None:
+        """Returns the raw user doc (includes password_hash). Use for login."""
         doc = self.collection.find_one({'email': email})
         return dict(doc) if doc else None
+
+    def get_by_id(self, user_id: str) -> dict | None:
+        """Returns the safe user doc (no password_hash). Use for /me, current_user."""
+        doc = self.collection.find_one({'id': user_id})
+        return _strip(doc) if doc else None
 
     def verify_password(self, password_hash: str, password: str) -> bool:
         try:
