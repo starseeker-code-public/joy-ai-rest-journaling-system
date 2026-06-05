@@ -8,6 +8,7 @@ dependencies = [
     "flask",
     "python-dotenv",
     "pymongo",
+    "argon2-cffi",
 ]
 
 [project.optional-dependencies]

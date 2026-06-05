@@ -2,10 +2,12 @@ import os
 from flask import Flask, jsonify
 from dotenv import load_dotenv
 from app.routes.journal_routes import register_journal_routes
+from app.routes.auth_routes import register_auth_routes
 
 load_dotenv()
 app = Flask(__name__)
 register_journal_routes(app)
+register_auth_routes(app)
 
 @app.route('/health', methods=['GET'])
 def health():
