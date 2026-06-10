@@ -14,6 +14,7 @@ def app():
     mongo = mongomock.MongoClient()['joy']
     app = Flask(__name__)
     app.config['TESTING'] = True
+    app.config['_test_journals_collection'] = mongo['journals']
     user_service = UserService(collection=mongo['users'])
     journal_service = JournalService(collection=mongo['journals'])
     permissive = RateLimiter(max_attempts=1000, window_seconds=60)
@@ -165,6 +166,46 @@ def test_delete_entry_is_gone(client, auth_headers):
 
 def test_delete_unknown_id_returns_404(client, auth_headers):
     assert client.delete('/api/journals/nonexistent-id', headers=auth_headers).status_code == 404
+
+
+# --- sentiment endpoint ---
+
+def test_get_sentiment_without_token_returns_401(client):
+    assert client.get('/api/journals/some-id/sentiment').status_code == 401
+
+
+def test_get_sentiment_unknown_id_returns_404(client, auth_headers):
+    assert client.get('/api/journals/nonexistent/sentiment', headers=auth_headers).status_code == 404
+
+
+def test_get_sentiment_returns_202_while_pending(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'X', 'content': 'hi'}, headers=auth_headers).get_json()
+    res = client.get(f'/api/journals/{created["id"]}/sentiment', headers=auth_headers)
+    assert res.status_code == 202
+    assert res.get_json() == {'status': 'pending'}
+
+
+def test_get_sentiment_returns_200_after_analysis(client, auth_headers, app):
+    created = client.post('/api/journals', json={'title': 'X', 'content': 'Good day'}, headers=auth_headers).get_json()
+    # Simulate the worker writing back via the shared collection
+    coll = app.config['_test_journals_collection']
+    coll.update_one(
+        {'id': created['id']},
+        {'$set': {'ai.sentiment': {'label': 'positive', 'score': 0.95, 'analyzed_at': '2026-06-10T00:00:00Z'}}},
+    )
+    res = client.get(f'/api/journals/{created["id"]}/sentiment', headers=auth_headers)
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body['label'] == 'positive'
+    assert body['score'] == 0.95
+    assert body['analyzed_at'] == '2026-06-10T00:00:00Z'
+
+
+def test_get_sentiment_user_a_cannot_read_user_b(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a_entry = client.post('/api/journals', json={'title': 'A'}, headers=headers_a).get_json()
+    assert client.get(f'/api/journals/{a_entry["id"]}/sentiment', headers=headers_b).status_code == 404
 
 
 # --- ownership isolation ---

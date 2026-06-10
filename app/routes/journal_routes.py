@@ -58,3 +58,14 @@ def register_journal_routes(app, service=None, publisher=None):
     @require_auth
     def delete_entry(uid):
         return ('', 204) if service.delete(g.user_id, uid) else (jsonify({'error': 'Not found'}), 404)
+
+    @app.route('/api/journals/<uid>/sentiment', methods=['GET'])
+    @require_auth
+    def get_sentiment(uid):
+        entry = service.get_one(g.user_id, uid)
+        if entry is None:
+            return jsonify({'error': 'Not found'}), 404
+        sentiment = (entry.get('ai') or {}).get('sentiment')
+        if sentiment is None:
+            return jsonify({'status': 'pending'}), 202
+        return jsonify(sentiment), 200
