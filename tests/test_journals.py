@@ -316,3 +316,39 @@ def test_storage_persists_across_service_instances():
     entry = s1.create('user-1', 'Persisted', 'content')
     s2 = JournalService(collection=coll)
     assert s2.get_one('user-1', entry['id']) is not None
+
+
+# --- event publishing ---
+
+def test_create_publishes_journal_created_event():
+    from unittest.mock import MagicMock
+    coll = mongomock.MongoClient()['joy']['journals']
+    publisher = MagicMock()
+    svc = JournalService(collection=coll, publisher=publisher)
+    entry = svc.create('user-1', 'Hello', 'body', mood=7, tags=['a'])
+    publisher.publish.assert_called_once()
+    routing_key, payload = publisher.publish.call_args.args
+    assert routing_key == 'journal.created'
+    assert payload['id'] == entry['id']
+    assert payload['user_id'] == 'user-1'
+    assert payload['title'] == 'Hello'
+    assert payload['mood'] == 7
+    assert payload['tags'] == ['a']
+
+
+def test_create_succeeds_when_publisher_fails():
+    from unittest.mock import MagicMock
+    coll = mongomock.MongoClient()['joy']['journals']
+    publisher = MagicMock()
+    publisher.publish.side_effect = RuntimeError('broker down')
+    svc = JournalService(collection=coll, publisher=publisher)
+    entry = svc.create('user-1', 'Still saved', 'body')
+    assert entry['id']
+    assert svc.get_one('user-1', entry['id']) is not None
+
+
+def test_create_without_publisher_is_a_noop():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'No publisher', 'body')
+    assert entry['id']

@@ -6,6 +6,7 @@ load_dotenv()
 from flask import Flask, jsonify
 from app.routes.journal_routes import register_journal_routes
 from app.routes.auth_routes import register_auth_routes
+from app.utils.event_publisher import EventPublisher
 
 DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'
 
@@ -28,7 +29,8 @@ def _check_secret_key() -> None:
 def create_app() -> Flask:
     _check_secret_key()
     app = Flask(__name__)
-    register_journal_routes(app)
+    publisher = EventPublisher()
+    register_journal_routes(app, publisher=publisher)
     register_auth_routes(app)
 
     @app.route('/health', methods=['GET'])

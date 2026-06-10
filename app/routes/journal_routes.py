@@ -3,9 +3,9 @@ from app.services.journal_service import JournalService
 from app.utils.auth import require_auth
 
 
-def register_journal_routes(app, service=None):
+def register_journal_routes(app, service=None, publisher=None):
     if service is None:
-        service = JournalService()
+        service = JournalService(publisher=publisher)
 
     @app.route('/api/journals', methods=['GET'])
     @require_auth
