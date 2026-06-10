@@ -9,8 +9,11 @@ services:
       DEBUG: "true"
       MONGO_URL: mongodb://mongo:27017
       MONGO_DB: joy
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
     depends_on:
       mongo:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     volumes:
       - .:/app
@@ -27,5 +30,33 @@ services:
       timeout: 5s
       retries: 5
 
+  consumer:
+    build: .
+    command: python consumer.py
+    environment:
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: joy
+      RABBITMQ_DEFAULT_PASS: joy
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   mongo-data:
+  rabbitmq-data:

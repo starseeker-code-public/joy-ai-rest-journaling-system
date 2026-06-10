@@ -1,7 +1,7 @@
 [project]
 name = "joy-ai-manifestation-platform"
-version = "0.2.0"
-description = "Journaling backend — Flask + MongoDB."
+version = "0.3.0"
+description = "Journaling backend — Flask + MongoDB + RabbitMQ event bus."
 requires-python = ">=3.11"
 
 dependencies = [
@@ -10,6 +10,7 @@ dependencies = [
     "pymongo",
     "argon2-cffi",
     "pyjwt",
+    "pika",
 ]
 
 [project.optional-dependencies]

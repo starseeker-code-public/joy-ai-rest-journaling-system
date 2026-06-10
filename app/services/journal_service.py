@@ -1,7 +1,11 @@
+import logging
 from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
+from app.utils.events import JOURNAL_CREATED
 from app.db import get_db
+
+logger = logging.getLogger(__name__)
 
 VALID_KINDS = {'text', 'voice', 'photo', 'summary'}
 
@@ -33,13 +37,14 @@ def _validate_kind(kind):
 
 
 class JournalService:
-    def __init__(self, collection=None):
+    def __init__(self, collection=None, publisher=None):
         if collection is None:
             self.collection = get_db()['journals']
             self.collection.create_index('id', unique=True)
             self.collection.create_index('user_id')
         else:
             self.collection = collection
+        self.publisher = publisher
 
     def get_all(self, user_id: str) -> list:
         return [strip_doc(e) for e in self.collection.find({'user_id': user_id})]
@@ -68,7 +73,17 @@ class JournalService:
             'kind': _validate_kind(kind),
         }
         self.collection.insert_one(entry)
-        return strip_doc(entry)
+        result = strip_doc(entry)
+        self._publish(JOURNAL_CREATED, result)
+        return result
+
+    def _publish(self, routing_key: str, payload: dict) -> None:
+        if self.publisher is None:
+            return
+        try:
+            self.publisher.publish(routing_key, payload)
+        except Exception:
+            logger.exception('Failed to publish %s event', routing_key)
 
     def update(
         self,

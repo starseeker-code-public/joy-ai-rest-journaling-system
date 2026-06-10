@@ -1,0 +1,7 @@
+"""Shared event-bus constants used by publisher, consumer, and producers."""
+
+EXCHANGE_NAME = 'joy.events'
+EXCHANGE_TYPE = 'topic'
+
+# Routing keys
+JOURNAL_CREATED = 'journal.created'

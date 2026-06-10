@@ -140,11 +140,11 @@ Distributed Microservices
 
 Current Version:
 
-v0.2.0
+v0.3.0
 
 Development Version:
 
-v0.3.0-dev
+v0.4.0-dev
 
 Repository Structure:
 
@@ -162,11 +162,11 @@ Repository Structure:
 
 Last Major Feature:
 
-AI sentiment analysis pipeline
+RabbitMQ event bus with publish/consume scaffolding
 
 Last Update:
 
-March 2026
+June 2026
 
 ------------------------------------------------------------------------
 
@@ -204,18 +204,18 @@ MongoDB persistence, JWT authentication, per-user ownership, and Docker.
 -   Enriched journal model (mood, tags, kind)
 -   Validation, rate limiting, startup-key guard, shared utilities
 
-## Planned
+### v0.3.x --- Event Bus (RabbitMQ) *(done)*
 
-### v0.3.x --- Event Bus (RabbitMQ)
-
-Introduce asynchronous messaging. Journal writes emit events that downstream
+Asynchronous messaging foundation. Journal writes emit events that downstream
 services will consume.
 
--   Add RabbitMQ container to docker-compose with credentials and healthcheck
--   Event-publisher utility wrapping pika
--   Emit `journal.created` from JournalService.create
--   Stub consumer service that logs received events
--   Integration test against a mock broker
+-   RabbitMQ container in docker-compose with healthcheck
+-   EventPublisher wrapping pika with `joy.events` topic exchange
+-   `journal.created` emitted from JournalService on create
+-   EventConsumer and stub `consumer.py` service in compose
+-   End-to-end integration test with an in-memory fake broker
+
+## Planned
 
 ### v0.4.x --- Sentiment Analysis (HuggingFace Transformers)
 
