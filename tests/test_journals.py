@@ -14,6 +14,7 @@ def app():
     mongo = mongomock.MongoClient()['joy']
     app = Flask(__name__)
     app.config['TESTING'] = True
+    app.config['_test_journals_collection'] = mongo['journals']
     user_service = UserService(collection=mongo['users'])
     journal_service = JournalService(collection=mongo['journals'])
     permissive = RateLimiter(max_attempts=1000, window_seconds=60)
@@ -167,6 +168,47 @@ def test_delete_unknown_id_returns_404(client, auth_headers):
     assert client.delete('/api/journals/nonexistent-id', headers=auth_headers).status_code == 404
 
 
+# --- sentiment endpoint ---
+
+def test_get_sentiment_without_token_returns_401(client):
+    assert client.get('/api/journals/some-id/sentiment').status_code == 401
+
+
+def test_get_sentiment_unknown_id_returns_404(client, auth_headers):
+    assert client.get('/api/journals/nonexistent/sentiment', headers=auth_headers).status_code == 404
+
+
+def test_get_sentiment_returns_202_while_pending(client, auth_headers):
+    created = client.post('/api/journals', json={'title': 'X', 'content': 'hi'}, headers=auth_headers).get_json()
+    res = client.get(f'/api/journals/{created["id"]}/sentiment', headers=auth_headers)
+    assert res.status_code == 202
+    assert res.get_json() == {'status': 'pending'}
+    assert res.headers.get('Retry-After') == '2'
+
+
+def test_get_sentiment_returns_200_after_analysis(client, auth_headers, app):
+    created = client.post('/api/journals', json={'title': 'X', 'content': 'Good day'}, headers=auth_headers).get_json()
+    # Simulate the worker writing back via the shared collection
+    coll = app.config['_test_journals_collection']
+    coll.update_one(
+        {'id': created['id']},
+        {'$set': {'ai.sentiment': {'label': 'positive', 'score': 0.95, 'analyzed_at': '2026-06-10T00:00:00Z'}}},
+    )
+    res = client.get(f'/api/journals/{created["id"]}/sentiment', headers=auth_headers)
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body['label'] == 'positive'
+    assert body['score'] == 0.95
+    assert body['analyzed_at'] == '2026-06-10T00:00:00Z'
+
+
+def test_get_sentiment_user_a_cannot_read_user_b(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a_entry = client.post('/api/journals', json={'title': 'A'}, headers=headers_a).get_json()
+    assert client.get(f'/api/journals/{a_entry["id"]}/sentiment', headers=headers_b).status_code == 404
+
+
 # --- ownership isolation ---
 
 def test_user_a_cannot_list_user_b_entries(client):
@@ -207,6 +249,7 @@ def test_create_has_default_mood_tags_kind(client, auth_headers):
     assert data['mood'] is None
     assert data['tags'] == []
     assert data['kind'] == 'text'
+    assert data['ai'] == {}
 
 
 # --- enriched fields: mood ---
@@ -377,3 +420,43 @@ def test_post_journals_publishes_event_end_to_end():
     assert routing_key == 'journal.created'
     assert payload['title'] == 'Via HTTP'
     assert payload['mood'] == 5
+
+
+# --- sentiment persistence ---
+
+def test_set_sentiment_writes_to_ai_subdoc():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    sentiment = {'label': 'positive', 'score': 0.9}
+    updated = svc.set_sentiment('user-1', entry['id'], sentiment)
+    assert updated['ai']['sentiment']['label'] == 'positive'
+    assert updated['ai']['sentiment']['score'] == 0.9
+    assert 'analyzed_at' in updated['ai']['sentiment']
+
+
+def test_set_sentiment_is_user_scoped():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    result = svc.set_sentiment('user-2', entry['id'], {'label': 'positive', 'score': 0.9})
+    assert result is None
+    # Original entry untouched
+    assert svc.get_one('user-1', entry['id'])['ai'] == {}
+
+
+def test_set_sentiment_unknown_id_returns_none():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    result = svc.set_sentiment('user-1', 'nonexistent', {'label': 'positive', 'score': 0.9})
+    assert result is None
+
+
+def test_set_sentiment_overwrites_previous_sentiment():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    svc.set_sentiment('user-1', entry['id'], {'label': 'positive', 'score': 0.5})
+    updated = svc.set_sentiment('user-1', entry['id'], {'label': 'negative', 'score': 0.9})
+    assert updated['ai']['sentiment']['label'] == 'negative'
+    assert updated['ai']['sentiment']['score'] == 0.9

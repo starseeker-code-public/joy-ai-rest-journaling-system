@@ -71,6 +71,7 @@ class JournalService:
             'mood': _validate_mood(mood),
             'tags': _validate_tags(tags),
             'kind': _validate_kind(kind),
+            'ai': {},
         }
         self.collection.insert_one(entry)
         result = strip_doc(entry)
@@ -118,3 +119,19 @@ class JournalService:
 
     def delete(self, user_id: str, uid: str) -> bool:
         return self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0
+
+    def set_sentiment(
+        self,
+        user_id: str,
+        uid: str,
+        sentiment: dict,
+    ) -> dict | None:
+        """Persist a sentiment result to entry.ai.sentiment. Returns updated entry or None."""
+        enriched = dict(sentiment)
+        enriched['analyzed_at'] = standard_now()
+        result = self.collection.find_one_and_update(
+            {'id': uid, 'user_id': user_id},
+            {'$set': {'ai.sentiment': enriched}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return strip_doc(result) if result else None
