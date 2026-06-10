@@ -41,6 +41,18 @@ services:
     volumes:
       - .:/app
 
+  analysis-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    environment:
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
   rabbitmq:
     image: rabbitmq:3-management
     ports:
