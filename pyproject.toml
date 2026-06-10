@@ -10,6 +10,7 @@ dependencies = [
     "pymongo",
     "argon2-cffi",
     "pyjwt",
+    "pika",
 ]
 
 [project.optional-dependencies]

@@ -7,7 +7,8 @@ RUN pip install --no-cache-dir \
     python-dotenv \
     pymongo \
     argon2-cffi \
-    pyjwt
+    pyjwt \
+    pika
 
 COPY . .
 
