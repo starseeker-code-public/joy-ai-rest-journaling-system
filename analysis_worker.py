@@ -9,12 +9,20 @@ from app.services.journal_service import JournalService
 
 logger = logging.getLogger('joy.analysis')
 
+MAX_CONTENT_CHARS = 5000
+
 
 def make_handler(analysis_service: AnalysisService, journal_service: JournalService):
     def handle(routing_key: str, payload: dict) -> None:
-        content = payload.get('content') or ''
+        if not isinstance(payload, dict):
+            logger.warning('skipping non-dict payload')
+            return
         journal_id = payload.get('id')
         user_id = payload.get('user_id')
+        if not journal_id or not user_id:
+            logger.warning('skipping payload missing id or user_id')
+            return
+        content = (payload.get('content') or '')[:MAX_CONTENT_CHARS]
         result = analysis_service.analyze(content)
         if result is None:
             logger.info('sentiment=none journal_id=%s (empty content)', journal_id)

@@ -2,19 +2,14 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
-    flask \
-    python-dotenv \
-    pymongo \
-    argon2-cffi \
-    pyjwt \
-    pika \
-    transformers
+COPY . .
 
-# CPU-only torch is ~200MB vs ~2GB for the default GPU build
+# CPU-only torch first (~200MB vs ~2GB GPU build); subsequent install sees the
+# requirement satisfied and won't pull the default GPU wheel.
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
-COPY . .
+# Pull base deps + [ai] extras from pyproject.toml — single source of truth.
+RUN pip install --no-cache-dir ".[ai]"
 
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app

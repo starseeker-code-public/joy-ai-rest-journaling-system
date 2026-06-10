@@ -67,5 +67,5 @@ def register_journal_routes(app, service=None, publisher=None):
             return jsonify({'error': 'Not found'}), 404
         sentiment = (entry.get('ai') or {}).get('sentiment')
         if sentiment is None:
-            return jsonify({'status': 'pending'}), 202
+            return jsonify({'status': 'pending'}), 202, {'Retry-After': '2'}
         return jsonify(sentiment), 200

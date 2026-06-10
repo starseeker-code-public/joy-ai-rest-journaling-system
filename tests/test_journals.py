@@ -183,6 +183,7 @@ def test_get_sentiment_returns_202_while_pending(client, auth_headers):
     res = client.get(f'/api/journals/{created["id"]}/sentiment', headers=auth_headers)
     assert res.status_code == 202
     assert res.get_json() == {'status': 'pending'}
+    assert res.headers.get('Retry-After') == '2'
 
 
 def test_get_sentiment_returns_200_after_analysis(client, auth_headers, app):

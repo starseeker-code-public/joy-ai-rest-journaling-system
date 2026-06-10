@@ -53,7 +53,8 @@ def test_handler_persists_sentiment_to_journal_service():
     journal.set_sentiment.assert_called_once_with('u1', 'xyz', sentiment)
 
 
-def test_handler_does_not_propagate_service_exceptions():
+def test_handler_propagates_service_exceptions_to_consumer():
+    """A failing analyze() should bubble — EventConsumer's nack path handles it."""
     handler, _, _ = _make_handler(analyze_side_effect=RuntimeError('model error'))
     try:
         handler('journal.created', {'id': 'abc', 'user_id': 'u1', 'content': 'text'})
@@ -61,3 +62,34 @@ def test_handler_does_not_propagate_service_exceptions():
         pass
     else:
         assert False, 'expected RuntimeError to propagate to EventConsumer'
+
+
+# --- payload validation ---
+
+def test_handler_skips_payload_missing_id():
+    handler, analysis, journal = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
+    handler('journal.created', {'user_id': 'u1', 'content': 'text'})
+    analysis.analyze.assert_not_called()
+    journal.set_sentiment.assert_not_called()
+
+
+def test_handler_skips_payload_missing_user_id():
+    handler, analysis, journal = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
+    handler('journal.created', {'id': 'abc', 'content': 'text'})
+    analysis.analyze.assert_not_called()
+    journal.set_sentiment.assert_not_called()
+
+
+def test_handler_skips_non_dict_payload():
+    handler, analysis, _ = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
+    handler('journal.created', ['not', 'a', 'dict'])
+    analysis.analyze.assert_not_called()
+
+
+def test_handler_truncates_oversize_content():
+    from analysis_worker import MAX_CONTENT_CHARS
+    handler, analysis, _ = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
+    long_text = 'x' * (MAX_CONTENT_CHARS + 1000)
+    handler('journal.created', {'id': 'abc', 'user_id': 'u1', 'content': long_text})
+    passed = analysis.analyze.call_args.args[0]
+    assert len(passed) == MAX_CONTENT_CHARS
