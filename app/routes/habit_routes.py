@@ -62,3 +62,9 @@ def register_habit_routes(app, service=None):
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
         return jsonify(res) if res else (jsonify({'error': 'Not found'}), 404)
+
+    @app.route('/api/habits/<uid>/streak', methods=['GET'])
+    @require_auth
+    def get_streak(uid):
+        res = service.streak(g.user_id, uid)
+        return jsonify(res) if res else (jsonify({'error': 'Not found'}), 404)

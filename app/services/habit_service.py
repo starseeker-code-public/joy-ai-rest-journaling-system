@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
+from app.utils.streaks import current_streak, longest_streak
 from app.db import get_db
 
 VALID_FREQUENCIES = {'daily', 'weekly'}
@@ -100,3 +101,15 @@ class HabitService:
             return_document=ReturnDocument.AFTER,
         )
         return strip_doc(result) if result else None
+
+    def streak(self, user_id: str, uid: str) -> dict | None:
+        """Return {'current': int, 'longest': int} or None if entry missing."""
+        habit = self.collection.find_one({'id': uid, 'user_id': user_id})
+        if habit is None:
+            return None
+        completions = habit.get('completions', [])
+        cadence = habit.get('target_freq', 'daily')
+        return {
+            'current': current_streak(completions, cadence),
+            'longest': longest_streak(completions, cadence),
+        }

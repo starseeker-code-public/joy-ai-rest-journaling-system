@@ -494,3 +494,89 @@ def test_http_check_cross_user_returns_404(client):
     a = client.post('/api/habits', json={'name': 'A'}, headers=headers_a).get_json()
     res = client.post(f'/api/habits/{a["id"]}/check', json={'date': '2026-06-10'}, headers=headers_b)
     assert res.status_code == 404
+
+
+# =============================================================================
+# Streak tests
+# =============================================================================
+
+# --- service ---
+
+def test_streak_new_habit_is_zero(service):
+    h = service.create('user-1', 'Run')
+    assert service.streak('user-1', h['id']) == {'current': 0, 'longest': 0}
+
+
+def test_streak_after_one_check(service):
+    h = service.create('user-1', 'Run')
+    service.check('user-1', h['id'], date='2026-06-10')
+    assert service.streak('user-1', h['id']) == {'current': 1, 'longest': 1}
+
+
+def test_streak_daily_three_in_a_row(service):
+    h = service.create('user-1', 'Run', target_freq='daily')
+    for d in ('2026-06-10', '2026-06-11', '2026-06-12'):
+        service.check('user-1', h['id'], date=d)
+    assert service.streak('user-1', h['id']) == {'current': 3, 'longest': 3}
+
+
+def test_streak_daily_longest_remembers_after_break(service):
+    h = service.create('user-1', 'Run', target_freq='daily')
+    for d in ('2026-06-01', '2026-06-02', '2026-06-03', '2026-06-10'):
+        service.check('user-1', h['id'], date=d)
+    assert service.streak('user-1', h['id']) == {'current': 1, 'longest': 3}
+
+
+def test_streak_respects_weekly_cadence(service):
+    h = service.create('user-1', 'Long run', target_freq='weekly')
+    # Same week: counts once
+    service.check('user-1', h['id'], date='2026-06-10')
+    service.check('user-1', h['id'], date='2026-06-12')
+    assert service.streak('user-1', h['id']) == {'current': 1, 'longest': 1}
+    # Next week
+    service.check('user-1', h['id'], date='2026-06-17')
+    assert service.streak('user-1', h['id']) == {'current': 2, 'longest': 2}
+
+
+def test_streak_unknown_id_returns_none(service):
+    assert service.streak('user-1', 'nonexistent') is None
+
+
+def test_streak_foreign_user_returns_none(service):
+    h = service.create('user-a', 'Private')
+    service.check('user-a', h['id'], date='2026-06-10')
+    assert service.streak('user-b', h['id']) is None
+
+
+# --- http ---
+
+def test_http_streak_without_token_returns_401(client):
+    assert client.get('/api/habits/some-id/streak').status_code == 401
+
+
+def test_http_streak_returns_current_and_longest(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    for d in ('2026-06-10', '2026-06-11'):
+        client.post(f'/api/habits/{created["id"]}/check', json={'date': d}, headers=auth_headers)
+    res = client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json() == {'current': 2, 'longest': 2}
+
+
+def test_http_streak_new_habit_is_zero(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'X'}, headers=auth_headers).get_json()
+    res = client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json() == {'current': 0, 'longest': 0}
+
+
+def test_http_streak_unknown_habit_returns_404(client, auth_headers):
+    res = client.get('/api/habits/nonexistent/streak', headers=auth_headers)
+    assert res.status_code == 404
+
+
+def test_http_streak_cross_user_returns_404(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a = client.post('/api/habits', json={'name': 'A'}, headers=headers_a).get_json()
+    assert client.get(f'/api/habits/{a["id"]}/streak', headers=headers_b).status_code == 404
