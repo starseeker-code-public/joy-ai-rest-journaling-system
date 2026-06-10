@@ -207,6 +207,7 @@ def test_create_has_default_mood_tags_kind(client, auth_headers):
     assert data['mood'] is None
     assert data['tags'] == []
     assert data['kind'] == 'text'
+    assert data['ai'] == {}
 
 
 # --- enriched fields: mood ---
@@ -377,3 +378,43 @@ def test_post_journals_publishes_event_end_to_end():
     assert routing_key == 'journal.created'
     assert payload['title'] == 'Via HTTP'
     assert payload['mood'] == 5
+
+
+# --- sentiment persistence ---
+
+def test_set_sentiment_writes_to_ai_subdoc():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    sentiment = {'label': 'positive', 'score': 0.9}
+    updated = svc.set_sentiment('user-1', entry['id'], sentiment)
+    assert updated['ai']['sentiment']['label'] == 'positive'
+    assert updated['ai']['sentiment']['score'] == 0.9
+    assert 'analyzed_at' in updated['ai']['sentiment']
+
+
+def test_set_sentiment_is_user_scoped():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    result = svc.set_sentiment('user-2', entry['id'], {'label': 'positive', 'score': 0.9})
+    assert result is None
+    # Original entry untouched
+    assert svc.get_one('user-1', entry['id'])['ai'] == {}
+
+
+def test_set_sentiment_unknown_id_returns_none():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    result = svc.set_sentiment('user-1', 'nonexistent', {'label': 'positive', 'score': 0.9})
+    assert result is None
+
+
+def test_set_sentiment_overwrites_previous_sentiment():
+    coll = mongomock.MongoClient()['joy']['journals']
+    svc = JournalService(collection=coll)
+    entry = svc.create('user-1', 'X', 'content')
+    svc.set_sentiment('user-1', entry['id'], {'label': 'positive', 'score': 0.5})
+    updated = svc.set_sentiment('user-1', entry['id'], {'label': 'negative', 'score': 0.9})
+    assert updated['ai']['sentiment']['label'] == 'negative'
+    assert updated['ai']['sentiment']['score'] == 0.9
