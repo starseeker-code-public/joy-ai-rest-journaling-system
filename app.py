@@ -1,3 +1,4 @@
+import atexit
 import os
 from dotenv import load_dotenv
 
@@ -30,6 +31,7 @@ def create_app() -> Flask:
     _check_secret_key()
     app = Flask(__name__)
     publisher = EventPublisher()
+    atexit.register(publisher.close)
     register_journal_routes(app, publisher=publisher)
     register_auth_routes(app)
 

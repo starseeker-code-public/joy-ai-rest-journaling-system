@@ -1,3 +1,4 @@
+from unittest.mock import MagicMock
 import pytest
 import mongomock
 from flask import Flask, jsonify
@@ -321,7 +322,6 @@ def test_storage_persists_across_service_instances():
 # --- event publishing ---
 
 def test_create_publishes_journal_created_event():
-    from unittest.mock import MagicMock
     coll = mongomock.MongoClient()['joy']['journals']
     publisher = MagicMock()
     svc = JournalService(collection=coll, publisher=publisher)
@@ -337,7 +337,6 @@ def test_create_publishes_journal_created_event():
 
 
 def test_create_succeeds_when_publisher_fails():
-    from unittest.mock import MagicMock
     coll = mongomock.MongoClient()['joy']['journals']
     publisher = MagicMock()
     publisher.publish.side_effect = RuntimeError('broker down')
@@ -352,3 +351,29 @@ def test_create_without_publisher_is_a_noop():
     svc = JournalService(collection=coll)
     entry = svc.create('user-1', 'No publisher', 'body')
     assert entry['id']
+
+
+def test_post_journals_publishes_event_end_to_end():
+    """HTTP-layer wiring: POST /api/journals must reach publisher.publish."""
+    mongo = mongomock.MongoClient()['joy']
+    publisher = MagicMock()
+    app = Flask(__name__)
+    app.config['TESTING'] = True
+    user_service = UserService(collection=mongo['users'])
+    journal_service = JournalService(collection=mongo['journals'], publisher=publisher)
+    permissive = RateLimiter(max_attempts=1000, window_seconds=60)
+    register_auth_routes(app, user_service=user_service, login_limiter=permissive)
+    register_journal_routes(app, service=journal_service)
+
+    with app.test_client() as c:
+        c.post('/auth/register', json={'email': 'a@example.com', 'password': 'secret123'})
+        token = c.post('/auth/login', json={'email': 'a@example.com', 'password': 'secret123'}).get_json()['token']
+        headers = {'Authorization': f'Bearer {token}'}
+        res = c.post('/api/journals', json={'title': 'Via HTTP', 'mood': 5}, headers=headers)
+
+    assert res.status_code == 201
+    publisher.publish.assert_called_once()
+    routing_key, payload = publisher.publish.call_args.args
+    assert routing_key == 'journal.created'
+    assert payload['title'] == 'Via HTTP'
+    assert payload['mood'] == 5

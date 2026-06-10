@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock
-from app.utils.event_consumer import EventConsumer, EXCHANGE_NAME
+from app.utils.event_consumer import EventConsumer
+from app.utils.events import EXCHANGE_NAME
 
 
 def _make_consumer_with_mock(routing_keys=None):

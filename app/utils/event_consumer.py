@@ -2,11 +2,9 @@ import json
 import logging
 import os
 import pika
+from app.utils.events import EXCHANGE_NAME, EXCHANGE_TYPE
 
 logger = logging.getLogger(__name__)
-
-EXCHANGE_NAME = 'joy.events'
-EXCHANGE_TYPE = 'topic'
 
 
 class EventConsumer:

@@ -37,6 +37,7 @@ class FakeBroker:
 class FakeChannel:
     def __init__(self, broker: FakeBroker):
         self.broker = broker
+        self.is_closed = False
         self._consumer_queue: str | None = None
         self._consumer_callback = None
         self.acked: list[int] = []
