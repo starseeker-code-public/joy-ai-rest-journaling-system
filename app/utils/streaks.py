@@ -30,7 +30,12 @@ def _step_days(cadence: str) -> int:
 
 
 def current_streak(dates: list[str], cadence: str = 'daily') -> int:
-    """Length of the most recent unbroken run of completions."""
+    """Length of the most recent unbroken run of completions.
+
+    Note: this is *time-independent*. A 5-day run that ended six months ago
+    still returns 5. To compute "active streak ending today," combine this
+    with a freshness check on the most recent date in `dates`.
+    """
     anchors = _normalize(dates, cadence)
     if not anchors:
         return 0

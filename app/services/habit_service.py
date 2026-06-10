@@ -6,6 +6,7 @@ from app.utils.streaks import current_streak, longest_streak
 from app.db import get_db
 
 VALID_FREQUENCIES = {'daily', 'weekly'}
+MAX_NAME_LENGTH = 200
 
 
 def _today_utc() -> str:
@@ -25,7 +26,10 @@ def _validate_date(date_str):
 def _validate_name(name):
     if not isinstance(name, str) or not name.strip():
         raise ValueError('name must be a non-empty string')
-    return name.strip()
+    stripped = name.strip()
+    if len(stripped) > MAX_NAME_LENGTH:
+        raise ValueError(f'name must be {MAX_NAME_LENGTH} characters or fewer')
+    return stripped
 
 
 def _validate_target_freq(freq):

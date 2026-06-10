@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pytest
 import mongomock
 from flask import Flask
@@ -393,7 +394,6 @@ def test_check_records_explicit_date(service):
 
 
 def test_check_defaults_to_today_utc(service):
-    from datetime import datetime, timezone
     h = service.create('user-1', 'Run')
     updated = service.check('user-1', h['id'])
     today = datetime.now(timezone.utc).date().isoformat()
@@ -446,7 +446,6 @@ def test_http_check_without_token_returns_401(client):
 
 
 def test_http_check_records_today(client, auth_headers):
-    from datetime import datetime, timezone
     created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
     res = client.post(f'/api/habits/{created["id"]}/check', json={}, headers=auth_headers)
     assert res.status_code == 200
@@ -580,3 +579,62 @@ def test_http_streak_cross_user_returns_404(client):
     headers_b = _register_and_login(client, email='b@example.com')
     a = client.post('/api/habits', json={'name': 'A'}, headers=headers_a).get_json()
     assert client.get(f'/api/habits/{a["id"]}/streak', headers=headers_b).status_code == 404
+
+
+def test_http_streak_updates_after_subsequent_check(client, auth_headers):
+    """Streak endpoint must reflect new checks, not stale results."""
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    for d in ('2026-06-10', '2026-06-11'):
+        client.post(f'/api/habits/{created["id"]}/check', json={'date': d}, headers=auth_headers)
+    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {'current': 2, 'longest': 2}
+    client.post(f'/api/habits/{created["id"]}/check', json={'date': '2026-06-12'}, headers=auth_headers)
+    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {'current': 3, 'longest': 3}
+
+
+# --- name length validation ---
+
+def test_create_name_too_long_raises(service):
+    from app.services.habit_service import MAX_NAME_LENGTH
+    with pytest.raises(ValueError, match='characters'):
+        service.create('user-1', 'x' * (MAX_NAME_LENGTH + 1))
+
+
+def test_create_name_at_max_length_ok(service):
+    from app.services.habit_service import MAX_NAME_LENGTH
+    habit = service.create('user-1', 'x' * MAX_NAME_LENGTH)
+    assert len(habit['name']) == MAX_NAME_LENGTH
+
+
+def test_http_create_name_too_long_returns_400(client, auth_headers):
+    from app.services.habit_service import MAX_NAME_LENGTH
+    res = client.post(
+        '/api/habits',
+        json={'name': 'x' * (MAX_NAME_LENGTH + 1)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+
+
+# --- end-to-end habits flow ---
+
+def test_habits_e2e_register_create_check_streak(client):
+    """Full happy-path flow: register → login → create habit → check 3 days → streak=3."""
+    client.post('/auth/register', json={'email': 'a@example.com', 'password': 'secret123'})
+    token = client.post('/auth/login', json={'email': 'a@example.com', 'password': 'secret123'}).get_json()['token']
+    headers = {'Authorization': f'Bearer {token}'}
+
+    created = client.post('/api/habits', json={'name': 'Meditate', 'target_freq': 'daily'}, headers=headers).get_json()
+    assert created['completions'] == []
+
+    initial_streak = client.get(f'/api/habits/{created["id"]}/streak', headers=headers).get_json()
+    assert initial_streak == {'current': 0, 'longest': 0}
+
+    for d in ('2026-06-10', '2026-06-11', '2026-06-12'):
+        client.post(f'/api/habits/{created["id"]}/check', json={'date': d}, headers=headers)
+
+    listing = client.get('/api/habits', headers=headers).get_json()
+    assert len(listing) == 1
+    assert set(listing[0]['completions']) == {'2026-06-10', '2026-06-11', '2026-06-12'}
+
+    final_streak = client.get(f'/api/habits/{created["id"]}/streak', headers=headers).get_json()
+    assert final_streak == {'current': 3, 'longest': 3}
