@@ -85,3 +85,119 @@ def test_create_preserves_distinct_user_ids(service):
 def test_valid_frequencies_constant_pin():
     """Catch silent expansion of allowed frequencies — schema changes should be deliberate."""
     assert VALID_FREQUENCIES == {'daily', 'weekly'}
+
+
+# --- list ---
+
+def test_get_all_empty(service):
+    assert service.get_all('user-1') == []
+
+
+def test_get_all_returns_user_habits(service):
+    service.create('user-1', 'A')
+    service.create('user-1', 'B')
+    result = service.get_all('user-1')
+    assert {h['name'] for h in result} == {'A', 'B'}
+
+
+def test_get_all_isolates_users(service):
+    service.create('user-a', 'Mine')
+    service.create('user-b', 'Theirs')
+    a_habits = service.get_all('user-a')
+    assert len(a_habits) == 1
+    assert a_habits[0]['name'] == 'Mine'
+
+
+# --- get one ---
+
+def test_get_one_returns_entry(service):
+    created = service.create('user-1', 'Run')
+    fetched = service.get_one('user-1', created['id'])
+    assert fetched['id'] == created['id']
+    assert fetched['name'] == 'Run'
+
+
+def test_get_one_unknown_id_returns_none(service):
+    assert service.get_one('user-1', 'nonexistent') is None
+
+
+def test_get_one_foreign_user_returns_none(service):
+    created = service.create('user-a', 'Private')
+    assert service.get_one('user-b', created['id']) is None
+
+
+# --- update ---
+
+def test_update_name(service):
+    created = service.create('user-1', 'Old')
+    updated = service.update('user-1', created['id'], name='New')
+    assert updated['name'] == 'New'
+    assert updated['target_freq'] == 'daily'
+
+
+def test_update_target_freq(service):
+    created = service.create('user-1', 'Run', target_freq='daily')
+    updated = service.update('user-1', created['id'], target_freq='weekly')
+    assert updated['target_freq'] == 'weekly'
+    assert updated['name'] == 'Run'
+
+
+def test_update_partial_preserves_other_fields(service):
+    created = service.create('user-1', 'Keep', target_freq='weekly')
+    updated = service.update('user-1', created['id'], name='Changed')
+    assert updated['name'] == 'Changed'
+    assert updated['target_freq'] == 'weekly'
+
+
+def test_update_empty_body_returns_unchanged(service):
+    created = service.create('user-1', 'Same', target_freq='weekly')
+    updated = service.update('user-1', created['id'])
+    assert updated['name'] == 'Same'
+    assert updated['target_freq'] == 'weekly'
+
+
+def test_update_unknown_id_returns_none(service):
+    assert service.update('user-1', 'nonexistent', name='X') is None
+
+
+def test_update_foreign_user_returns_none(service):
+    created = service.create('user-a', 'Private')
+    assert service.update('user-b', created['id'], name='hijacked') is None
+    # Original entry unchanged
+    assert service.get_one('user-a', created['id'])['name'] == 'Private'
+
+
+def test_update_invalid_name_raises(service):
+    created = service.create('user-1', 'OK')
+    with pytest.raises(ValueError, match='name'):
+        service.update('user-1', created['id'], name='   ')
+
+
+def test_update_invalid_target_freq_raises(service):
+    created = service.create('user-1', 'OK')
+    with pytest.raises(ValueError, match='target_freq'):
+        service.update('user-1', created['id'], target_freq='hourly')
+
+
+# --- delete ---
+
+def test_delete_returns_true(service):
+    created = service.create('user-1', 'Bye')
+    assert service.delete('user-1', created['id']) is True
+
+
+def test_delete_entry_is_gone(service):
+    created = service.create('user-1', 'Gone')
+    service.delete('user-1', created['id'])
+    assert service.get_one('user-1', created['id']) is None
+
+
+def test_delete_unknown_id_returns_false(service):
+    assert service.delete('user-1', 'nonexistent') is False
+
+
+def test_delete_foreign_user_returns_false(service):
+    created = service.create('user-a', 'Protected')
+    assert service.delete('user-b', created['id']) is False
+    # Entry still there for the rightful owner
+    assert service.get_one('user-a', created['id']) is not None
