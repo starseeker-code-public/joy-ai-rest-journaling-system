@@ -1,5 +1,6 @@
 import json
 from unittest.mock import MagicMock
+
 from app.utils.event_consumer import EventConsumer
 from app.utils.events import EXCHANGE_NAME
 

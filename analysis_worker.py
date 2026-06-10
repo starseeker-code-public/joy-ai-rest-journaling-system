@@ -1,11 +1,13 @@
 """Worker process: consumes journal.created events and runs sentiment analysis."""
+
 import logging
+
 from dotenv import load_dotenv
 
-from app.utils.event_consumer import EventConsumer
-from app.utils.events import JOURNAL_CREATED
 from app.services.analysis_service import AnalysisService
 from app.services.journal_service import JournalService
+from app.utils.event_consumer import EventConsumer
+from app.utils.events import JOURNAL_CREATED
 
 logger = logging.getLogger('joy.analysis')
 
@@ -30,8 +32,11 @@ def make_handler(analysis_service: AnalysisService, journal_service: JournalServ
         journal_service.set_sentiment(user_id, journal_id, result)
         logger.info(
             'sentiment=%s score=%.3f journal_id=%s',
-            result['label'], result['score'], journal_id,
+            result['label'],
+            result['score'],
+            journal_id,
         )
+
     return handle
 
 

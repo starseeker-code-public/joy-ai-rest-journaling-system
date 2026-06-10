@@ -1,5 +1,6 @@
 import json
 from unittest.mock import MagicMock
+
 from app.utils.event_publisher import EventPublisher
 from app.utils.events import EXCHANGE_NAME, EXCHANGE_TYPE
 
@@ -81,7 +82,7 @@ def test_reopens_after_close():
 def test_publisher_is_thread_safe():
     """Each thread gets its own connection; publishes don't interleave channels."""
     import threading
-    from collections import defaultdict
+
     connections_seen: dict[int, object] = {}
     factory_lock = threading.Lock()
 
@@ -104,8 +105,10 @@ def test_publisher_is_thread_safe():
         pub.publish('journal.created', {'thread': threading.get_ident()})
 
     threads = [threading.Thread(target=worker) for _ in range(4)]
-    for t in threads: t.start()
-    for t in threads: t.join()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
     # Each thread observed its own connection (4 distinct connections)
     assert len(connections_seen) == 4

@@ -1,9 +1,11 @@
 from unittest.mock import MagicMock
-import pytest
+
 import mongomock
+import pytest
 from flask import Flask, jsonify
-from app.routes.journal_routes import register_journal_routes
+
 from app.routes.auth_routes import register_auth_routes
+from app.routes.journal_routes import register_journal_routes
 from app.services.journal_service import JournalService
 from app.services.user_service import UserService
 from app.utils.rate_limiter import RateLimiter
@@ -47,6 +49,7 @@ def auth_headers(client):
 
 # --- auth gate ---
 
+
 def test_list_without_token_returns_401(client):
     assert client.get('/api/journals').status_code == 401
 
@@ -73,6 +76,7 @@ def test_invalid_token_returns_401(client):
 
 # --- list ---
 
+
 def test_list_empty(client, auth_headers):
     res = client.get('/api/journals', headers=auth_headers)
     assert res.status_code == 200
@@ -88,6 +92,7 @@ def test_list_contains_created_entries(client, auth_headers):
 
 
 # --- create ---
+
 
 def test_create_returns_201_with_all_fields(client, auth_headers):
     res = client.post('/api/journals', json={'title': 'Day 1', 'content': 'Good day'}, headers=auth_headers)
@@ -116,6 +121,7 @@ def test_create_empty_body_returns_400(client, auth_headers):
 
 # --- get single ---
 
+
 def test_get_one_returns_entry(client, auth_headers):
     created = client.post('/api/journals', json={'title': 'Entry'}, headers=auth_headers).get_json()
     res = client.get(f'/api/journals/{created["id"]}', headers=auth_headers)
@@ -128,6 +134,7 @@ def test_get_one_unknown_id_returns_404(client, auth_headers):
 
 
 # --- update ---
+
 
 def test_update_title_and_content(client, auth_headers):
     created = client.post('/api/journals', json={'title': 'Old', 'content': 'Old'}, headers=auth_headers).get_json()
@@ -153,6 +160,7 @@ def test_update_unknown_id_returns_404(client, auth_headers):
 
 # --- delete ---
 
+
 def test_delete_returns_204(client, auth_headers):
     created = client.post('/api/journals', json={'title': 'Bye'}, headers=auth_headers).get_json()
     assert client.delete(f'/api/journals/{created["id"]}', headers=auth_headers).status_code == 204
@@ -169,6 +177,7 @@ def test_delete_unknown_id_returns_404(client, auth_headers):
 
 
 # --- sentiment endpoint ---
+
 
 def test_get_sentiment_without_token_returns_401(client):
     assert client.get('/api/journals/some-id/sentiment').status_code == 401
@@ -211,6 +220,7 @@ def test_get_sentiment_user_a_cannot_read_user_b(client):
 
 # --- ownership isolation ---
 
+
 def test_user_a_cannot_list_user_b_entries(client):
     headers_a = _register_and_login(client, email='a@example.com')
     headers_b = _register_and_login(client, email='b@example.com')
@@ -243,6 +253,7 @@ def test_user_a_cannot_delete_user_b_entry(client):
 
 # --- enriched fields: defaults ---
 
+
 def test_create_has_default_mood_tags_kind(client, auth_headers):
     res = client.post('/api/journals', json={'title': 'X'}, headers=auth_headers)
     data = res.get_json()
@@ -253,6 +264,7 @@ def test_create_has_default_mood_tags_kind(client, auth_headers):
 
 
 # --- enriched fields: mood ---
+
 
 def test_create_with_mood(client, auth_headers):
     res = client.post('/api/journals', json={'title': 'X', 'mood': 7}, headers=auth_headers)
@@ -284,6 +296,7 @@ def test_update_invalid_mood_returns_400(client, auth_headers):
 
 # --- enriched fields: tags ---
 
+
 def test_create_with_tags(client, auth_headers):
     res = client.post('/api/journals', json={'title': 'X', 'tags': ['work', 'urgent']}, headers=auth_headers)
     assert res.status_code == 201
@@ -304,6 +317,7 @@ def test_update_tags(client, auth_headers):
 
 # --- enriched fields: kind ---
 
+
 def test_create_with_kind(client, auth_headers):
     res = client.post('/api/journals', json={'title': 'X', 'kind': 'voice'}, headers=auth_headers)
     assert res.status_code == 201
@@ -322,6 +336,7 @@ def test_update_kind(client, auth_headers):
 
 
 # --- update edge cases ---
+
 
 def test_update_empty_body_returns_unchanged(client, auth_headers):
     entry = client.post(
@@ -346,6 +361,7 @@ def test_update_can_clear_content_to_empty_string(client, auth_headers):
 
 # --- health ---
 
+
 def test_health_returns_healthy(client):
     res = client.get('/health')
     assert res.status_code == 200
@@ -353,6 +369,7 @@ def test_health_returns_healthy(client):
 
 
 # --- storage ---
+
 
 def test_storage_persists_across_service_instances():
     coll = mongomock.MongoClient()['joy']['journals']
@@ -363,6 +380,7 @@ def test_storage_persists_across_service_instances():
 
 
 # --- event publishing ---
+
 
 def test_create_publishes_journal_created_event():
     coll = mongomock.MongoClient()['joy']['journals']
@@ -423,6 +441,7 @@ def test_post_journals_publishes_event_end_to_end():
 
 
 # --- sentiment persistence ---
+
 
 def test_set_sentiment_writes_to_ai_subdoc():
     coll = mongomock.MongoClient()['joy']['journals']

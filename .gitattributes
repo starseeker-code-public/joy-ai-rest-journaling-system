@@ -1,0 +1,16 @@
+# Text files normalized to LF on commit and checkout.
+# Keeps line endings deterministic across Windows / Linux / macOS contributors
+# and matches the pre-commit `mixed-line-ending` hook.
+
+* text=auto eol=lf
+
+# Binary files — git should not touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.lock binary

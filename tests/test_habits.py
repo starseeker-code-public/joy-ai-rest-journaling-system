@@ -1,10 +1,12 @@
-from datetime import datetime, timezone
-import pytest
+from datetime import UTC, datetime
+
 import mongomock
+import pytest
 from flask import Flask
-from app.routes.habit_routes import register_habit_routes
+
 from app.routes.auth_routes import register_auth_routes
-from app.services.habit_service import HabitService, VALID_FREQUENCIES
+from app.routes.habit_routes import register_habit_routes
+from app.services.habit_service import VALID_FREQUENCIES, HabitService
 from app.services.user_service import UserService
 from app.utils.rate_limiter import RateLimiter
 
@@ -47,6 +49,7 @@ def auth_headers(client):
 
 # --- creation: happy path ---
 
+
 def test_create_returns_entry_with_all_fields(service):
     habit = service.create('user-1', 'Meditate', target_freq='daily')
     assert habit['id']
@@ -87,6 +90,7 @@ def test_create_returns_no_internal_id(service):
 
 # --- creation: validation ---
 
+
 def test_create_empty_name_raises(service):
     with pytest.raises(ValueError, match='name'):
         service.create('user-1', '')
@@ -109,6 +113,7 @@ def test_create_invalid_target_freq_raises(service):
 
 # --- ownership ---
 
+
 def test_create_preserves_distinct_user_ids(service):
     a = service.create('user-a', 'Habit A')
     b = service.create('user-b', 'Habit B')
@@ -119,12 +124,14 @@ def test_create_preserves_distinct_user_ids(service):
 
 # --- schema sanity ---
 
+
 def test_valid_frequencies_constant_pin():
     """Catch silent expansion of allowed frequencies — schema changes should be deliberate."""
     assert VALID_FREQUENCIES == {'daily', 'weekly'}
 
 
 # --- list ---
+
 
 def test_get_all_empty(service):
     assert service.get_all('user-1') == []
@@ -147,6 +154,7 @@ def test_get_all_isolates_users(service):
 
 # --- get one ---
 
+
 def test_get_one_returns_entry(service):
     created = service.create('user-1', 'Run')
     fetched = service.get_one('user-1', created['id'])
@@ -164,6 +172,7 @@ def test_get_one_foreign_user_returns_none(service):
 
 
 # --- update ---
+
 
 def test_update_name(service):
     created = service.create('user-1', 'Old')
@@ -218,6 +227,7 @@ def test_update_invalid_target_freq_raises(service):
 
 # --- delete ---
 
+
 def test_delete_returns_true(service):
     created = service.create('user-1', 'Bye')
     assert service.delete('user-1', created['id']) is True
@@ -246,6 +256,7 @@ def test_delete_foreign_user_returns_false(service):
 
 # --- auth gate ---
 
+
 def test_http_list_without_token_returns_401(client):
     assert client.get('/api/habits').status_code == 401
 
@@ -268,6 +279,7 @@ def test_http_delete_without_token_returns_401(client):
 
 # --- list ---
 
+
 def test_http_list_empty(client, auth_headers):
     res = client.get('/api/habits', headers=auth_headers)
     assert res.status_code == 200
@@ -282,6 +294,7 @@ def test_http_list_contains_created(client, auth_headers):
 
 
 # --- create ---
+
 
 def test_http_create_returns_201(client, auth_headers):
     res = client.post('/api/habits', json={'name': 'Run', 'target_freq': 'weekly'}, headers=auth_headers)
@@ -311,6 +324,7 @@ def test_http_create_invalid_target_freq_returns_400(client, auth_headers):
 
 # --- get one ---
 
+
 def test_http_get_one_returns_entry(client, auth_headers):
     created = client.post('/api/habits', json={'name': 'X'}, headers=auth_headers).get_json()
     res = client.get(f'/api/habits/{created["id"]}', headers=auth_headers)
@@ -323,6 +337,7 @@ def test_http_get_one_unknown_returns_404(client, auth_headers):
 
 
 # --- update ---
+
 
 def test_http_update(client, auth_headers):
     created = client.post('/api/habits', json={'name': 'Old'}, headers=auth_headers).get_json()
@@ -343,6 +358,7 @@ def test_http_update_invalid_target_freq_returns_400(client, auth_headers):
 
 # --- delete ---
 
+
 def test_http_delete_returns_204(client, auth_headers):
     created = client.post('/api/habits', json={'name': 'Bye'}, headers=auth_headers).get_json()
     assert client.delete(f'/api/habits/{created["id"]}', headers=auth_headers).status_code == 204
@@ -359,6 +375,7 @@ def test_http_delete_unknown_returns_404(client, auth_headers):
 
 
 # --- ownership at HTTP layer ---
+
 
 def test_http_user_a_cannot_list_user_b_habits(client):
     headers_a = _register_and_login(client, email='a@example.com')
@@ -387,6 +404,7 @@ def test_http_user_a_cannot_delete_user_b_habit(client):
 
 # --- service ---
 
+
 def test_check_records_explicit_date(service):
     h = service.create('user-1', 'Run')
     updated = service.check('user-1', h['id'], date='2026-06-10')
@@ -396,7 +414,7 @@ def test_check_records_explicit_date(service):
 def test_check_defaults_to_today_utc(service):
     h = service.create('user-1', 'Run')
     updated = service.check('user-1', h['id'])
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     assert updated['completions'] == [today]
 
 
@@ -441,6 +459,7 @@ def test_check_non_string_date_raises(service):
 
 # --- http ---
 
+
 def test_http_check_without_token_returns_401(client):
     assert client.post('/api/habits/some-id/check', json={}).status_code == 401
 
@@ -449,7 +468,7 @@ def test_http_check_records_today(client, auth_headers):
     created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
     res = client.post(f'/api/habits/{created["id"]}/check', json={}, headers=auth_headers)
     assert res.status_code == 200
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     assert res.get_json()['completions'] == [today]
 
 
@@ -501,6 +520,7 @@ def test_http_check_cross_user_returns_404(client):
 
 # --- service ---
 
+
 def test_streak_new_habit_is_zero(service):
     h = service.create('user-1', 'Run')
     assert service.streak('user-1', h['id']) == {'current': 0, 'longest': 0}
@@ -549,6 +569,7 @@ def test_streak_foreign_user_returns_none(service):
 
 # --- http ---
 
+
 def test_http_streak_without_token_returns_401(client):
     assert client.get('/api/habits/some-id/streak').status_code == 401
 
@@ -586,27 +607,37 @@ def test_http_streak_updates_after_subsequent_check(client, auth_headers):
     created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
     for d in ('2026-06-10', '2026-06-11'):
         client.post(f'/api/habits/{created["id"]}/check', json={'date': d}, headers=auth_headers)
-    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {'current': 2, 'longest': 2}
+    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {
+        'current': 2,
+        'longest': 2,
+    }
     client.post(f'/api/habits/{created["id"]}/check', json={'date': '2026-06-12'}, headers=auth_headers)
-    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {'current': 3, 'longest': 3}
+    assert client.get(f'/api/habits/{created["id"]}/streak', headers=auth_headers).get_json() == {
+        'current': 3,
+        'longest': 3,
+    }
 
 
 # --- name length validation ---
 
+
 def test_create_name_too_long_raises(service):
     from app.services.habit_service import MAX_NAME_LENGTH
+
     with pytest.raises(ValueError, match='characters'):
         service.create('user-1', 'x' * (MAX_NAME_LENGTH + 1))
 
 
 def test_create_name_at_max_length_ok(service):
     from app.services.habit_service import MAX_NAME_LENGTH
+
     habit = service.create('user-1', 'x' * MAX_NAME_LENGTH)
     assert len(habit['name']) == MAX_NAME_LENGTH
 
 
 def test_http_create_name_too_long_returns_400(client, auth_headers):
     from app.services.habit_service import MAX_NAME_LENGTH
+
     res = client.post(
         '/api/habits',
         json={'name': 'x' * (MAX_NAME_LENGTH + 1)},
@@ -616,6 +647,7 @@ def test_http_create_name_too_long_returns_400(client, auth_headers):
 
 
 # --- end-to-end habits flow ---
+
 
 def test_habits_e2e_register_create_check_streak(client):
     """Full happy-path flow: register → login → create habit → check 3 days → streak=3."""

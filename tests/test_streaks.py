@@ -1,8 +1,9 @@
 """Pure-function tests for streak math — no DB, no HTTP."""
+
 from app.utils.streaks import current_streak, longest_streak
 
-
 # --- daily: current ---
+
 
 def test_current_daily_empty():
     assert current_streak([], 'daily') == 0
@@ -27,10 +28,13 @@ def test_current_daily_broken_streak_returns_recent_run():
 
 def test_current_daily_counts_from_most_recent():
     # 2026-06-01..03 is an old streak; 2026-06-10..11 is the recent one
-    assert current_streak(
-        ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-10', '2026-06-11'],
-        'daily',
-    ) == 2
+    assert (
+        current_streak(
+            ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-10', '2026-06-11'],
+            'daily',
+        )
+        == 2
+    )
 
 
 def test_current_daily_unsorted_input():
@@ -50,6 +54,7 @@ def test_current_daily_cross_year():
 
 
 # --- daily: longest ---
+
 
 def test_longest_daily_empty():
     assert longest_streak([], 'daily') == 0
@@ -73,6 +78,7 @@ def test_longest_daily_dedupes():
 
 
 # --- weekly: current ---
+
 
 def test_current_weekly_empty():
     assert current_streak([], 'weekly') == 0
@@ -104,6 +110,7 @@ def test_current_weekly_cross_year():
 
 
 # --- weekly: longest ---
+
 
 def test_longest_weekly_finds_longest_run():
     # Two short blocks: weeks 23-24 (2), then weeks 27-28-29 (3)

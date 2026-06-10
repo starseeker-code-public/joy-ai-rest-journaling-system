@@ -1,16 +1,18 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
+
 from pymongo import ReturnDocument
-from app.utils.tools import standard_now, strip_doc
-from app.utils.streaks import current_streak, longest_streak
+
 from app.db import get_db
+from app.utils.streaks import current_streak, longest_streak
+from app.utils.tools import standard_now, strip_doc
 
 VALID_FREQUENCIES = {'daily', 'weekly'}
 MAX_NAME_LENGTH = 200
 
 
 def _today_utc() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now(UTC).date().isoformat()
 
 
 def _validate_date(date_str):

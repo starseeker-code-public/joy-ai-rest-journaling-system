@@ -1,5 +1,7 @@
 from functools import wraps
-from flask import request, jsonify, g
+
+from flask import g, jsonify, request
+
 from app.utils.jwt_utils import decode_token
 
 
@@ -21,4 +23,5 @@ def require_auth(fn):
             return jsonify({'error': 'Invalid token'}), 401
         g.user_id = payload['sub']
         return fn(*args, **kwargs)
+
     return wrapper

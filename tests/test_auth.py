@@ -1,11 +1,13 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 import jwt as pyjwt
-import pytest
 import mongomock
+import pytest
 from flask import Flask
+
 from app.routes.auth_routes import register_auth_routes
 from app.services.user_service import UserService
-from app.utils.jwt_utils import _secret, ALGORITHM
+from app.utils.jwt_utils import ALGORITHM, _secret
 from app.utils.rate_limiter import RateLimiter
 
 
@@ -23,6 +25,7 @@ def client():
 
 
 # --- register ---
+
 
 def test_register_returns_201_with_user(client):
     res = client.post('/auth/register', json={'email': 'a@example.com', 'password': 'secret123'})
@@ -68,6 +71,7 @@ def test_register_short_password_returns_400(client):
 
 # --- password hashing ---
 
+
 def test_password_is_hashed_in_db():
     coll = mongomock.MongoClient()['joy']['users']
     svc = UserService(collection=coll)
@@ -94,6 +98,7 @@ def test_verify_password_wrong():
 
 
 # --- login ---
+
 
 def test_login_returns_token_and_user(client):
     client.post('/auth/register', json={'email': 'a@example.com', 'password': 'secret123'})
@@ -126,6 +131,7 @@ def test_login_missing_password_returns_400(client):
 
 # --- rate limiting ---
 
+
 def test_login_rate_limit_returns_429():
     app = Flask(__name__)
     app.config['TESTING'] = True
@@ -143,11 +149,13 @@ def test_login_rate_limit_returns_429():
 
 # --- logout ---
 
+
 def test_logout_returns_204(client):
     assert client.post('/auth/logout').status_code == 204
 
 
 # --- me ---
+
 
 def test_me_with_valid_token_returns_user(client):
     client.post('/auth/register', json={'email': 'a@example.com', 'password': 'secret123'})
@@ -174,7 +182,7 @@ def test_me_with_malformed_auth_header_returns_401(client):
 
 
 def test_me_with_expired_token_returns_401(client):
-    past = datetime.now(timezone.utc) - timedelta(days=1)
+    past = datetime.now(UTC) - timedelta(days=1)
     expired = pyjwt.encode({'sub': 'user-1', 'exp': past}, _secret(), algorithm=ALGORITHM)
     res = client.get('/auth/me', headers={'Authorization': f'Bearer {expired}'})
     assert res.status_code == 401

@@ -1,13 +1,15 @@
 import atexit
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from flask import Flask, jsonify
-from app.routes.journal_routes import register_journal_routes
+
 from app.routes.auth_routes import register_auth_routes
 from app.routes.habit_routes import register_habit_routes
+from app.routes.journal_routes import register_journal_routes
 from app.utils.event_publisher import EventPublisher
 
 DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'

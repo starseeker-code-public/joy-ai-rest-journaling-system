@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 from analysis_worker import make_handler
 
 
@@ -66,6 +67,7 @@ def test_handler_propagates_service_exceptions_to_consumer():
 
 # --- payload validation ---
 
+
 def test_handler_skips_payload_missing_id():
     handler, analysis, journal = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
     handler('journal.created', {'user_id': 'u1', 'content': 'text'})
@@ -88,6 +90,7 @@ def test_handler_skips_non_dict_payload():
 
 def test_handler_truncates_oversize_content():
     from analysis_worker import MAX_CONTENT_CHARS
+
     handler, analysis, _ = _make_handler(analyze_return={'label': 'positive', 'score': 0.9})
     long_text = 'x' * (MAX_CONTENT_CHARS + 1000)
     handler('journal.created', {'id': 'abc', 'user_id': 'u1', 'content': long_text})

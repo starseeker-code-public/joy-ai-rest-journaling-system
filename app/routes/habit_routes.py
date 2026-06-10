@@ -1,4 +1,5 @@
-from flask import request, jsonify, g
+from flask import g, jsonify, request
+
 from app.services.habit_service import HabitService
 from app.utils.auth import require_auth
 
@@ -40,7 +41,8 @@ def register_habit_routes(app, service=None):
         data = request.json or {}
         try:
             res = service.update(
-                g.user_id, uid,
+                g.user_id,
+                uid,
                 name=data.get('name'),
                 target_freq=data.get('target_freq'),
             )

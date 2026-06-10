@@ -1,16 +1,19 @@
 """Full pipeline: POST → publisher → fake broker → worker → set_sentiment → GET."""
+
 from unittest.mock import MagicMock
+
 import mongomock
 from flask import Flask
-from app.routes.journal_routes import register_journal_routes
+
+from analysis_worker import make_handler
 from app.routes.auth_routes import register_auth_routes
+from app.routes.journal_routes import register_journal_routes
 from app.services.journal_service import JournalService
 from app.services.user_service import UserService
-from app.utils.rate_limiter import RateLimiter
-from app.utils.event_publisher import EventPublisher
 from app.utils.event_consumer import EventConsumer
+from app.utils.event_publisher import EventPublisher
 from app.utils.events import JOURNAL_CREATED
-from analysis_worker import make_handler
+from app.utils.rate_limiter import RateLimiter
 from tests.fakes import FakeBroker, FakeConnection
 
 

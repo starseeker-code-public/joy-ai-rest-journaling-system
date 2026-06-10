@@ -1,0 +1,51 @@
+# Install both pre-commit and pre-push hooks on first `pre-commit install`
+default_install_hook_types: [pre-commit, pre-push]
+
+# Skip ephemeral and vendored directories.
+exclude: |
+  (?x)^(
+    \.venv/.*
+    | data/.*
+    | instance/.*
+    | private/.*
+    | .*\.lock
+  )$
+
+repos:
+  # --- standard hygiene ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: debug-statements
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # --- python lint + format (replaces black, flake8, isort) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # --- tests gate before push (slower; runs on pre-push, not pre-commit) ---
+  # `uv run` syncs deps from pyproject.toml + uv.lock before executing,
+  # so the hook works on a fresh clone without manual venv setup.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (full suite)
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

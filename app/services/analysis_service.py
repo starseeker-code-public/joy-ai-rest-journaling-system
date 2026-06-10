@@ -16,6 +16,7 @@ class AnalysisService:
     def _get_pipeline(self):
         if self._pipeline is None:
             from transformers import pipeline as _pipeline
+
             self._pipeline = _pipeline('sentiment-analysis', model=self._model_name)
         return self._pipeline
 

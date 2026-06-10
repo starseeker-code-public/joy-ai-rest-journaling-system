@@ -1,7 +1,9 @@
 import os
+
 from pymongo import MongoClient
 
 _client = None
+
 
 def get_db():
     global _client

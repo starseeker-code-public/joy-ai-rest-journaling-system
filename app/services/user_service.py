@@ -1,7 +1,9 @@
 import re
 from uuid import uuid4
+
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+
 from app.db import get_db
 from app.utils.tools import standard_now, strip_doc
 

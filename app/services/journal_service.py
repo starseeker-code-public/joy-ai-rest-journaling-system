@@ -1,9 +1,11 @@
 import logging
 from uuid import uuid4
+
 from pymongo import ReturnDocument
-from app.utils.tools import standard_now, strip_doc
-from app.utils.events import JOURNAL_CREATED
+
 from app.db import get_db
+from app.utils.events import JOURNAL_CREATED
+from app.utils.tools import standard_now, strip_doc
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,5 @@
 """In-memory pika-compatible fake broker used across integration tests."""
+
 from collections import defaultdict, deque
 from types import SimpleNamespace
 

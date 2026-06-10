@@ -1,6 +1,7 @@
 """End-to-end test: EventPublisher → in-memory broker → EventConsumer."""
-from app.utils.event_publisher import EventPublisher
+
 from app.utils.event_consumer import EventConsumer
+from app.utils.event_publisher import EventPublisher
 from tests.fakes import FakeBroker, FakeConnection
 
 
@@ -19,6 +20,7 @@ def _wire(broker: FakeBroker):
 
 
 # --- tests ---
+
 
 def test_published_event_reaches_consumer_handler():
     broker = FakeBroker()

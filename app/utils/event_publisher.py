@@ -1,7 +1,9 @@
 import json
 import os
 import threading
+
 import pika
+
 from app.utils.events import EXCHANGE_NAME, EXCHANGE_TYPE
 
 
@@ -26,12 +28,7 @@ class EventPublisher:
     def _ensure_channel(self):
         connection = getattr(self._local, 'connection', None)
         channel = getattr(self._local, 'channel', None)
-        if (
-            connection is None
-            or connection.is_closed
-            or channel is None
-            or channel.is_closed
-        ):
+        if connection is None or connection.is_closed or channel is None or channel.is_closed:
             connection = self._connection_factory()
             channel = connection.channel()
             channel.exchange_declare(

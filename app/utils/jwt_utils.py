@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 import jwt
 
 ALGORITHM = 'HS256'
@@ -11,7 +12,7 @@ def _secret() -> str:
 
 
 def issue_token(user_id: str) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         'sub': user_id,
         'iat': now,

@@ -17,8 +17,49 @@ dependencies = [
 dev = [
     "pytest",
     "mongomock",
+    "pre-commit",
+    "ruff",
 ]
 ai = [
     "transformers",
     "torch",
 ]
+
+[tool.pytest.ini_options]
+# Add the project root so tests can `import app.*`, `import consumer`,
+# `import analysis_worker` regardless of how the suite is launched
+# (pytest directly, `uv run pytest`, or pre-commit hooks).
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv", "data", "instance", "private", "scripts/run.sh"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort
+    "B",   # bugbear (likely bugs)
+    "UP",  # pyupgrade
+]
+# Don't auto-remove unused imports that look like re-exports.
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "B008",  # do not perform function call in default argument (Flask + pytest fixtures do this)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B"]  # bugbear too noisy in tests
+"app/__init__.py" = ["F401"]  # allow re-exports
+# Entry points must call load_dotenv() before importing app modules — env is
+# read at module load time.
+"app.py" = ["E402"]
+"consumer.py" = ["E402"]
+"analysis_worker.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = false

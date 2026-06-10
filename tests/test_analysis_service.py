@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
-from app.services.analysis_service import AnalysisService, SENTIMENT_MODEL
+
+from app.services.analysis_service import SENTIMENT_MODEL, AnalysisService
 
 
 def _stub(label: str, score: float):

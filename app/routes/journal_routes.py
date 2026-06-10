@@ -1,4 +1,5 @@
-from flask import request, jsonify, g
+from flask import g, jsonify, request
+
 from app.services.journal_service import JournalService
 from app.utils.auth import require_auth
 
@@ -43,7 +44,8 @@ def register_journal_routes(app, service=None, publisher=None):
         data = request.json or {}
         try:
             res = service.update(
-                g.user_id, uid,
+                g.user_id,
+                uid,
                 title=data.get('title'),
                 content=data.get('content'),
                 mood=data.get('mood'),

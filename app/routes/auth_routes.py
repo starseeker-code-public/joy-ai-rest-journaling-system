@@ -1,7 +1,8 @@
-from flask import request, jsonify
-from app.services.user_service import UserService, InvalidCredentials
+from flask import jsonify, request
+
+from app.services.user_service import InvalidCredentials, UserService
 from app.utils.auth import get_bearer_token
-from app.utils.jwt_utils import issue_token, decode_token
+from app.utils.jwt_utils import decode_token, issue_token
 from app.utils.rate_limiter import RateLimiter
 from app.utils.tools import strip_doc
 
