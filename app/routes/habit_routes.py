@@ -52,3 +52,13 @@ def register_habit_routes(app, service=None):
     @require_auth
     def delete_habit(uid):
         return ('', 204) if service.delete(g.user_id, uid) else (jsonify({'error': 'Not found'}), 404)
+
+    @app.route('/api/habits/<uid>/check', methods=['POST'])
+    @require_auth
+    def check_habit(uid):
+        data = request.json or {}
+        try:
+            res = service.check(g.user_id, uid, date=data.get('date'))
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        return jsonify(res) if res else (jsonify({'error': 'Not found'}), 404)

@@ -53,6 +53,7 @@ def test_create_returns_entry_with_all_fields(service):
     assert habit['name'] == 'Meditate'
     assert habit['target_freq'] == 'daily'
     assert 'created_at' in habit
+    assert habit['completions'] == []
 
 
 def test_create_strips_whitespace_from_name(service):
@@ -290,6 +291,7 @@ def test_http_create_returns_201(client, auth_headers):
     assert 'id' in data
     assert 'created_at' in data
     assert 'user_id' in data
+    assert data['completions'] == []
 
 
 def test_http_create_defaults_target_freq(client, auth_headers):
@@ -376,3 +378,119 @@ def test_http_user_a_cannot_delete_user_b_habit(client):
     headers_b = _register_and_login(client, email='b@example.com')
     a = client.post('/api/habits', json={'name': 'A-private'}, headers=headers_a).get_json()
     assert client.delete(f'/api/habits/{a["id"]}', headers=headers_b).status_code == 404
+
+
+# =============================================================================
+# Check / completion tests
+# =============================================================================
+
+# --- service ---
+
+def test_check_records_explicit_date(service):
+    h = service.create('user-1', 'Run')
+    updated = service.check('user-1', h['id'], date='2026-06-10')
+    assert updated['completions'] == ['2026-06-10']
+
+
+def test_check_defaults_to_today_utc(service):
+    from datetime import datetime, timezone
+    h = service.create('user-1', 'Run')
+    updated = service.check('user-1', h['id'])
+    today = datetime.now(timezone.utc).date().isoformat()
+    assert updated['completions'] == [today]
+
+
+def test_check_is_idempotent_on_same_date(service):
+    h = service.create('user-1', 'Run')
+    service.check('user-1', h['id'], date='2026-06-10')
+    service.check('user-1', h['id'], date='2026-06-10')
+    updated = service.check('user-1', h['id'], date='2026-06-10')
+    assert updated['completions'] == ['2026-06-10']
+
+
+def test_check_accumulates_distinct_dates(service):
+    h = service.create('user-1', 'Run')
+    service.check('user-1', h['id'], date='2026-06-10')
+    service.check('user-1', h['id'], date='2026-06-11')
+    updated = service.check('user-1', h['id'], date='2026-06-12')
+    assert set(updated['completions']) == {'2026-06-10', '2026-06-11', '2026-06-12'}
+
+
+def test_check_unknown_id_returns_none(service):
+    assert service.check('user-1', 'nonexistent', date='2026-06-10') is None
+
+
+def test_check_foreign_user_returns_none(service):
+    h = service.create('user-a', 'Private')
+    assert service.check('user-b', h['id'], date='2026-06-10') is None
+    # Owner sees no completion either
+    assert service.get_one('user-a', h['id'])['completions'] == []
+
+
+def test_check_invalid_date_format_raises(service):
+    h = service.create('user-1', 'Run')
+    with pytest.raises(ValueError, match='date'):
+        service.check('user-1', h['id'], date='10/06/2026')
+
+
+def test_check_non_string_date_raises(service):
+    h = service.create('user-1', 'Run')
+    with pytest.raises(ValueError, match='date'):
+        service.check('user-1', h['id'], date=20260610)
+
+
+# --- http ---
+
+def test_http_check_without_token_returns_401(client):
+    assert client.post('/api/habits/some-id/check', json={}).status_code == 401
+
+
+def test_http_check_records_today(client, auth_headers):
+    from datetime import datetime, timezone
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    res = client.post(f'/api/habits/{created["id"]}/check', json={}, headers=auth_headers)
+    assert res.status_code == 200
+    today = datetime.now(timezone.utc).date().isoformat()
+    assert res.get_json()['completions'] == [today]
+
+
+def test_http_check_with_explicit_date(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    res = client.post(
+        f'/api/habits/{created["id"]}/check',
+        json={'date': '2026-06-10'},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert res.get_json()['completions'] == ['2026-06-10']
+
+
+def test_http_check_is_idempotent(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    for _ in range(3):
+        client.post(f'/api/habits/{created["id"]}/check', json={'date': '2026-06-10'}, headers=auth_headers)
+    data = client.get(f'/api/habits/{created["id"]}', headers=auth_headers).get_json()
+    assert data['completions'] == ['2026-06-10']
+
+
+def test_http_check_unknown_habit_returns_404(client, auth_headers):
+    res = client.post('/api/habits/nonexistent/check', json={}, headers=auth_headers)
+    assert res.status_code == 404
+
+
+def test_http_check_invalid_date_returns_400(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Run'}, headers=auth_headers).get_json()
+    res = client.post(
+        f'/api/habits/{created["id"]}/check',
+        json={'date': 'not-a-date'},
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+
+
+def test_http_check_cross_user_returns_404(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a = client.post('/api/habits', json={'name': 'A'}, headers=headers_a).get_json()
+    res = client.post(f'/api/habits/{a["id"]}/check', json={'date': '2026-06-10'}, headers=headers_b)
+    assert res.status_code == 404

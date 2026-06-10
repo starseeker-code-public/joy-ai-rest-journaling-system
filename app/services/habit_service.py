@@ -1,9 +1,24 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
 from app.db import get_db
 
 VALID_FREQUENCIES = {'daily', 'weekly'}
+
+
+def _today_utc() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _validate_date(date_str):
+    if not isinstance(date_str, str):
+        raise ValueError('date must be a string in YYYY-MM-DD format')
+    try:
+        datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError as e:
+        raise ValueError('date must be in YYYY-MM-DD format') from e
+    return date_str
 
 
 def _validate_name(name):
@@ -36,6 +51,7 @@ class HabitService:
             'name': _validate_name(name),
             'target_freq': _validate_target_freq(target_freq),
             'created_at': standard_now(),
+            'completions': [],
         }
         self.collection.insert_one(entry)
         return strip_doc(entry)
@@ -70,3 +86,17 @@ class HabitService:
 
     def delete(self, user_id: str, uid: str) -> bool:
         return self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0
+
+    def check(self, user_id: str, uid: str, date: str | None = None) -> dict | None:
+        """Record a completion on the given date (defaults to today UTC).
+
+        Idempotent on the same date — adding the same date twice is a no-op.
+        Returns the updated entry or None if not found / not owned.
+        """
+        date = _validate_date(date) if date is not None else _today_utc()
+        result = self.collection.find_one_and_update(
+            {'id': uid, 'user_id': user_id},
+            {'$addToSet': {'completions': date}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return strip_doc(result) if result else None
