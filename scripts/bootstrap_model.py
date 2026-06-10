@@ -8,11 +8,10 @@ Usage:
 """
 import logging
 import sys
+from app.services.analysis_service import SENTIMENT_MODEL
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
 logger = logging.getLogger('joy.bootstrap')
-
-SENTIMENT_MODEL = 'distilbert-base-uncased-finetuned-sst-2-english'
 
 
 def main() -> int:
