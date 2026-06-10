@@ -1,12 +1,47 @@
 import pytest
 import mongomock
+from flask import Flask
+from app.routes.habit_routes import register_habit_routes
+from app.routes.auth_routes import register_auth_routes
 from app.services.habit_service import HabitService, VALID_FREQUENCIES
+from app.services.user_service import UserService
+from app.utils.rate_limiter import RateLimiter
 
 
 @pytest.fixture
 def service():
     coll = mongomock.MongoClient()['joy']['habits']
     return HabitService(collection=coll)
+
+
+@pytest.fixture
+def app():
+    mongo = mongomock.MongoClient()['joy']
+    app = Flask(__name__)
+    app.config['TESTING'] = True
+    user_service = UserService(collection=mongo['users'])
+    habit_service = HabitService(collection=mongo['habits'])
+    permissive = RateLimiter(max_attempts=1000, window_seconds=60)
+    register_auth_routes(app, user_service=user_service, login_limiter=permissive)
+    register_habit_routes(app, service=habit_service)
+    return app
+
+
+@pytest.fixture
+def client(app):
+    with app.test_client() as c:
+        yield c
+
+
+def _register_and_login(client, email='a@example.com', password='secret123'):
+    client.post('/auth/register', json={'email': email, 'password': password})
+    token = client.post('/auth/login', json={'email': email, 'password': password}).get_json()['token']
+    return {'Authorization': f'Bearer {token}'}
+
+
+@pytest.fixture
+def auth_headers(client):
+    return _register_and_login(client)
 
 
 # --- creation: happy path ---
@@ -201,3 +236,143 @@ def test_delete_foreign_user_returns_false(service):
     assert service.delete('user-b', created['id']) is False
     # Entry still there for the rightful owner
     assert service.get_one('user-a', created['id']) is not None
+
+
+# =============================================================================
+# HTTP-layer tests (using Flask test client)
+# =============================================================================
+
+# --- auth gate ---
+
+def test_http_list_without_token_returns_401(client):
+    assert client.get('/api/habits').status_code == 401
+
+
+def test_http_create_without_token_returns_401(client):
+    assert client.post('/api/habits', json={'name': 'X'}).status_code == 401
+
+
+def test_http_get_one_without_token_returns_401(client):
+    assert client.get('/api/habits/some-id').status_code == 401
+
+
+def test_http_update_without_token_returns_401(client):
+    assert client.put('/api/habits/some-id', json={'name': 'X'}).status_code == 401
+
+
+def test_http_delete_without_token_returns_401(client):
+    assert client.delete('/api/habits/some-id').status_code == 401
+
+
+# --- list ---
+
+def test_http_list_empty(client, auth_headers):
+    res = client.get('/api/habits', headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json() == []
+
+
+def test_http_list_contains_created(client, auth_headers):
+    client.post('/api/habits', json={'name': 'Meditate'}, headers=auth_headers)
+    client.post('/api/habits', json={'name': 'Read'}, headers=auth_headers)
+    data = client.get('/api/habits', headers=auth_headers).get_json()
+    assert {h['name'] for h in data} == {'Meditate', 'Read'}
+
+
+# --- create ---
+
+def test_http_create_returns_201(client, auth_headers):
+    res = client.post('/api/habits', json={'name': 'Run', 'target_freq': 'weekly'}, headers=auth_headers)
+    assert res.status_code == 201
+    data = res.get_json()
+    assert data['name'] == 'Run'
+    assert data['target_freq'] == 'weekly'
+    assert 'id' in data
+    assert 'created_at' in data
+    assert 'user_id' in data
+
+
+def test_http_create_defaults_target_freq(client, auth_headers):
+    res = client.post('/api/habits', json={'name': 'Stretch'}, headers=auth_headers)
+    assert res.get_json()['target_freq'] == 'daily'
+
+
+def test_http_create_missing_name_returns_400(client, auth_headers):
+    assert client.post('/api/habits', json={}, headers=auth_headers).status_code == 400
+
+
+def test_http_create_invalid_target_freq_returns_400(client, auth_headers):
+    res = client.post('/api/habits', json={'name': 'X', 'target_freq': 'hourly'}, headers=auth_headers)
+    assert res.status_code == 400
+
+
+# --- get one ---
+
+def test_http_get_one_returns_entry(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'X'}, headers=auth_headers).get_json()
+    res = client.get(f'/api/habits/{created["id"]}', headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['id'] == created['id']
+
+
+def test_http_get_one_unknown_returns_404(client, auth_headers):
+    assert client.get('/api/habits/nonexistent', headers=auth_headers).status_code == 404
+
+
+# --- update ---
+
+def test_http_update(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Old'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/habits/{created["id"]}', json={'name': 'New'}, headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['name'] == 'New'
+
+
+def test_http_update_unknown_returns_404(client, auth_headers):
+    assert client.put('/api/habits/nonexistent', json={'name': 'X'}, headers=auth_headers).status_code == 404
+
+
+def test_http_update_invalid_target_freq_returns_400(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'X'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/habits/{created["id"]}', json={'target_freq': 'hourly'}, headers=auth_headers)
+    assert res.status_code == 400
+
+
+# --- delete ---
+
+def test_http_delete_returns_204(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Bye'}, headers=auth_headers).get_json()
+    assert client.delete(f'/api/habits/{created["id"]}', headers=auth_headers).status_code == 204
+
+
+def test_http_delete_then_get_returns_404(client, auth_headers):
+    created = client.post('/api/habits', json={'name': 'Gone'}, headers=auth_headers).get_json()
+    client.delete(f'/api/habits/{created["id"]}', headers=auth_headers)
+    assert client.get(f'/api/habits/{created["id"]}', headers=auth_headers).status_code == 404
+
+
+def test_http_delete_unknown_returns_404(client, auth_headers):
+    assert client.delete('/api/habits/nonexistent', headers=auth_headers).status_code == 404
+
+
+# --- ownership at HTTP layer ---
+
+def test_http_user_a_cannot_list_user_b_habits(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    client.post('/api/habits', json={'name': 'A-private'}, headers=headers_a)
+    assert client.get('/api/habits', headers=headers_b).get_json() == []
+
+
+def test_http_user_a_cannot_read_user_b_habit(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a = client.post('/api/habits', json={'name': 'A-private'}, headers=headers_a).get_json()
+    assert client.get(f'/api/habits/{a["id"]}', headers=headers_b).status_code == 404
+
+
+def test_http_user_a_cannot_delete_user_b_habit(client):
+    headers_a = _register_and_login(client, email='a@example.com')
+    headers_b = _register_and_login(client, email='b@example.com')
+    a = client.post('/api/habits', json={'name': 'A-private'}, headers=headers_a).get_json()
+    assert client.delete(f'/api/habits/{a["id"]}', headers=headers_b).status_code == 404
