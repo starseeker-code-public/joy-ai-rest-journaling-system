@@ -1,10 +1,11 @@
 import pytest
 import mongomock
-from flask import Flask
+from flask import Flask, jsonify
 from app.routes.journal_routes import register_journal_routes
 from app.routes.auth_routes import register_auth_routes
 from app.services.journal_service import JournalService
 from app.services.user_service import UserService
+from app.utils.rate_limiter import RateLimiter
 
 
 @pytest.fixture
@@ -14,8 +15,14 @@ def app():
     app.config['TESTING'] = True
     user_service = UserService(collection=mongo['users'])
     journal_service = JournalService(collection=mongo['journals'])
-    register_auth_routes(app, user_service=user_service)
+    permissive = RateLimiter(max_attempts=1000, window_seconds=60)
+    register_auth_routes(app, user_service=user_service, login_limiter=permissive)
     register_journal_routes(app, service=journal_service)
+
+    @app.route('/health', methods=['GET'])
+    def health():
+        return jsonify({'status': 'healthy'}), 200
+
     return app
 
 
@@ -268,6 +275,37 @@ def test_update_kind(client, auth_headers):
     res = client.put(f'/api/journals/{entry["id"]}', json={'kind': 'summary'}, headers=auth_headers)
     assert res.status_code == 200
     assert res.get_json()['kind'] == 'summary'
+
+
+# --- update edge cases ---
+
+def test_update_empty_body_returns_unchanged(client, auth_headers):
+    entry = client.post(
+        '/api/journals',
+        json={'title': 'Original', 'content': 'Stuff', 'mood': 5},
+        headers=auth_headers,
+    ).get_json()
+    res = client.put(f'/api/journals/{entry["id"]}', json={}, headers=auth_headers)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data['title'] == 'Original'
+    assert data['content'] == 'Stuff'
+    assert data['mood'] == 5
+
+
+def test_update_can_clear_content_to_empty_string(client, auth_headers):
+    entry = client.post('/api/journals', json={'title': 'X', 'content': 'something'}, headers=auth_headers).get_json()
+    res = client.put(f'/api/journals/{entry["id"]}', json={'content': ''}, headers=auth_headers)
+    assert res.status_code == 200
+    assert res.get_json()['content'] == ''
+
+
+# --- health ---
+
+def test_health_returns_healthy(client):
+    res = client.get('/health')
+    assert res.status_code == 200
+    assert res.get_json() == {'status': 'healthy'}
 
 
 # --- storage ---

@@ -2,10 +2,17 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
-RUN pip install --no-cache-dir flask python-dotenv pymongo
+RUN pip install --no-cache-dir \
+    flask \
+    python-dotenv \
+    pymongo \
+    argon2-cffi \
+    pyjwt
 
 COPY . .
+
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
 
 EXPOSE 5000
 

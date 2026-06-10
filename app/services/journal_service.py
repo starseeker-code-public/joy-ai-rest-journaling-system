@@ -1,15 +1,9 @@
 from uuid import uuid4
 from pymongo import ReturnDocument
-from app.utils.tools import standard_now
+from app.utils.tools import standard_now, strip_doc
 from app.db import get_db
 
 VALID_KINDS = {'text', 'voice', 'photo', 'summary'}
-
-
-def _strip(doc: dict) -> dict:
-    doc = dict(doc)
-    doc.pop('_id', None)
-    return doc
 
 
 def _validate_mood(mood):
@@ -48,11 +42,11 @@ class JournalService:
             self.collection = collection
 
     def get_all(self, user_id: str) -> list:
-        return [_strip(e) for e in self.collection.find({'user_id': user_id})]
+        return [strip_doc(e) for e in self.collection.find({'user_id': user_id})]
 
     def get_one(self, user_id: str, uid: str) -> dict | None:
         e = self.collection.find_one({'id': uid, 'user_id': user_id})
-        return _strip(e) if e else None
+        return strip_doc(e) if e else None
 
     def create(
         self,
@@ -74,7 +68,7 @@ class JournalService:
             'kind': _validate_kind(kind),
         }
         self.collection.insert_one(entry)
-        return _strip(entry)
+        return strip_doc(entry)
 
     def update(
         self,
@@ -87,9 +81,9 @@ class JournalService:
         kind=None,
     ) -> dict | None:
         patch = {}
-        if title:
+        if title is not None:
             patch['title'] = title
-        if content:
+        if content is not None:
             patch['content'] = content
         if mood is not None:
             patch['mood'] = _validate_mood(mood)
@@ -105,7 +99,7 @@ class JournalService:
             {'$set': patch},
             return_document=ReturnDocument.AFTER,
         )
-        return _strip(result) if result else None
+        return strip_doc(result) if result else None
 
     def delete(self, user_id: str, uid: str) -> bool:
         return self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0

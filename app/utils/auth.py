@@ -3,13 +3,20 @@ from flask import request, jsonify, g
 from app.utils.jwt_utils import decode_token
 
 
+def get_bearer_token() -> str | None:
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        return auth[7:]
+    return None
+
+
 def require_auth(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        auth = request.headers.get('Authorization', '')
-        if not auth.startswith('Bearer '):
+        token = get_bearer_token()
+        if not token:
             return jsonify({'error': 'Missing token'}), 401
-        payload = decode_token(auth[7:])
+        payload = decode_token(token)
         if not payload:
             return jsonify({'error': 'Invalid token'}), 401
         g.user_id = payload['sub']

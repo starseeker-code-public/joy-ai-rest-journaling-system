@@ -1,17 +1,30 @@
+import re
 from uuid import uuid4
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.db import get_db
-from app.utils.tools import standard_now
+from app.utils.tools import standard_now, strip_doc
 
 _ph = PasswordHasher()
 
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+MIN_PASSWORD_LENGTH = 8
 
-def _strip(doc: dict) -> dict:
-    doc = dict(doc)
-    doc.pop('_id', None)
-    doc.pop('password_hash', None)
-    return doc
+
+class InvalidCredentials(ValueError):
+    """Raised when registration input fails format/length validation."""
+
+
+def _validate_email(email) -> str:
+    if not isinstance(email, str) or not EMAIL_RE.match(email):
+        raise InvalidCredentials('Invalid email format')
+    return email
+
+
+def _validate_password(password) -> str:
+    if not isinstance(password, str) or len(password) < MIN_PASSWORD_LENGTH:
+        raise InvalidCredentials(f'Password must be at least {MIN_PASSWORD_LENGTH} characters')
+    return password
 
 
 class UserService:
@@ -23,6 +36,8 @@ class UserService:
             self.collection = collection
 
     def register(self, email: str, password: str) -> dict | None:
+        _validate_email(email)
+        _validate_password(password)
         if self.collection.find_one({'email': email}):
             return None
         user = {
@@ -34,7 +49,7 @@ class UserService:
             'settings': {},
         }
         self.collection.insert_one(user)
-        return _strip(user)
+        return strip_doc(user, 'password_hash')
 
     def get_by_email(self, email: str) -> dict | None:
         """Returns the raw user doc (includes password_hash). Use for login."""
@@ -44,7 +59,7 @@ class UserService:
     def get_by_id(self, user_id: str) -> dict | None:
         """Returns the safe user doc (no password_hash). Use for /me, current_user."""
         doc = self.collection.find_one({'id': user_id})
-        return _strip(doc) if doc else None
+        return strip_doc(doc, 'password_hash') if doc else None
 
     def verify_password(self, password_hash: str, password: str) -> bool:
         try:

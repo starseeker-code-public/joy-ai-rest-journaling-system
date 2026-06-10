@@ -170,6 +170,228 @@ March 2026
 
 ------------------------------------------------------------------------
 
+# Roadmap
+
+The platform evolves in phases. Each phase introduces **one** new piece of
+technology (or one new domain service) so the system grows in small,
+reviewable increments. Within a phase, work is split into a sublist of
+focused, incremental steps.
+
+## Completed
+
+### v0.0.x --- Scaffolding *(done)*
+
+Initial Flask project skeleton, layout, and tooling.
+
+### v0.1.x --- Basic CRUD *(done)*
+
+Single-user journal entries stored in local JSON files.
+
+-   Journal model, service, and routes
+-   In-memory and file-based storage
+-   Health endpoint
+-   First round of tests
+
+### v0.2.x --- Multi-user Foundation *(done)*
+
+MongoDB persistence, JWT authentication, per-user ownership, and Docker.
+
+-   MongoDB migration (JSON files → pymongo)
+-   Docker + Compose with Mongo service
+-   User registration with Argon2id hashing
+-   JWT login / logout / me
+-   Route protection and ownership scoping
+-   Enriched journal model (mood, tags, kind)
+-   Validation, rate limiting, startup-key guard, shared utilities
+
+## Planned
+
+### v0.3.x --- Event Bus (RabbitMQ)
+
+Introduce asynchronous messaging. Journal writes emit events that downstream
+services will consume.
+
+-   Add RabbitMQ container to docker-compose with credentials and healthcheck
+-   Event-publisher utility wrapping pika
+-   Emit `journal.created` from JournalService.create
+-   Stub consumer service that logs received events
+-   Integration test against a mock broker
+
+### v0.4.x --- Sentiment Analysis (HuggingFace Transformers)
+
+First AI capability: sentiment scoring on journal content.
+
+-   Add transformers dependency and model bootstrap script
+-   AnalysisService wrapping a deterministic sentiment pipeline
+-   Wire AnalysisService as `journal.created` consumer
+-   Persist sentiment to the journal `ai` subdocument
+-   `GET /api/journals/<id>/sentiment` endpoint
+-   Tests with a stub model for deterministic CI
+
+### v0.5.x --- Habit Service
+
+Second domain entity: trackable habits with streaks. No new technology ---
+proves the stack scales to more services.
+
+-   Habit data model (name, target_freq, user_id, timestamps)
+-   HabitService CRUD with user scoping
+-   `/api/habits` routes (auth-gated)
+-   Habit-check endpoint to record a completion
+-   Streak calculation logic
+-   Tests for ownership isolation and streak math
+
+### v0.6.x --- Goal Service
+
+Third domain entity: goals with milestones.
+
+-   Goal data model (title, milestones\[\], target_date, user_id)
+-   GoalService CRUD
+-   `/api/goals` routes
+-   Milestone-complete endpoint
+-   Progress calculation derived from milestones
+-   Tests
+
+### v0.7.x --- Full-text Search (OpenSearch)
+
+Make journal content searchable.
+
+-   Add OpenSearch container
+-   Indexing pipeline triggered by `journal.created` / `journal.updated`
+-   `/api/journals/search?q=` endpoint
+-   Filter by tags, date range, kind
+-   Tests using a mocked OpenSearch client
+
+### v0.8.x --- Analytics Store (ClickHouse)
+
+Aggregate analytics separated from the operational database.
+
+-   Add ClickHouse container and schema for journal analytics events
+-   Event sink mirroring sentiment and tag events from RabbitMQ
+-   `/api/analytics/mood-trend` endpoint
+-   `/api/analytics/tag-frequency` endpoint
+-   Tests against a ClickHouse test container
+
+### v0.9.x --- Insight Service
+
+Weekly behavioral insights derived from analytics. Builds on v0.4 + v0.8.
+
+-   Standalone Insight consumer service
+-   Weekly aggregation scheduler
+-   Insight model (period, summary, highlights)
+-   `/api/insights` endpoint
+-   Aggregation tests on canned analytics data
+
+### v0.10.x --- Distributed Cache & Rate Limiting (Redis)
+
+Replace the in-memory rate limiter with a shared, durable backend; add a
+caching layer.
+
+-   Add Redis container
+-   RedisRateLimiter implementing the existing `allow()` interface
+-   Switch login limiter to Redis
+-   Cache `/me` lookups with TTL
+-   Tests using fakeredis
+
+### v0.11.x --- API Gateway
+
+Unified entry point in front of services.
+
+-   Reverse proxy container (Nginx or Traefik)
+-   Central route registry
+-   Auth verification at the gateway (offload service-side check where safe)
+-   Per-route rate-limit configuration
+-   Aggregated `/health` across services
+
+### v0.12.x --- Structured Logging (structlog)
+
+Production-grade logs.
+
+-   Switch standard logging to structlog
+-   Request-id middleware
+-   JSON output mode toggled by environment
+-   Per-request log context (user_id, path, status, duration)
+
+### v0.13.x --- Metrics (Prometheus)
+
+Operational visibility.
+
+-   Add prometheus_client and `/metrics` endpoint
+-   Latency histograms per route
+-   Business metrics (entries/day, sentiment distribution, active users)
+-   Grafana dashboard JSON checked into the repo
+
+### v0.14.x --- Distributed Tracing (OpenTelemetry)
+
+End-to-end request tracing across services.
+
+-   OTel SDK and Flask/pika auto-instrumentation
+-   Trace-context propagation across the event bus
+-   Jaeger backend container
+-   Sampled traces for slow-request endpoints
+-   Docs on reading the trace UI
+
+### v0.15.x --- Object Storage (MinIO / S3)
+
+Binary attachment storage.
+
+-   MinIO container with bucket bootstrap
+-   Presigned-URL upload endpoint
+-   Attachment metadata persisted on journal entries
+-   Background cleanup for orphaned objects
+-   Tests using a fake S3 client
+
+### v0.16.x --- Voice Notes (Whisper STT)
+
+Audio capture and transcription.
+
+-   Whisper-based transcription service or external API client
+-   New `kind: voice` journal flow with audio attachment
+-   Transcription event reuses the sentiment pipeline
+-   Per-voice-note cost recorded for v0.17
+-   Tests with a stub transcriber
+
+### v0.17.x --- AI Cost Tracking
+
+Per-user accounting of every AI call.
+
+-   AICall ledger collection (model, tokens, cost_usd, request_id, user_id)
+-   Wrapper recording usage on every AI call
+-   `/api/me/usage` endpoint with daily and monthly rollups
+-   Budget-enforcement hooks (soft warn, hard block)
+-   Tests
+
+### v0.18.x --- PWA Frontend
+
+Standalone Progressive Web App client.
+
+-   New `frontend/` workspace (framework TBD: React / Svelte / Vue)
+-   Auth flow against existing JWT endpoints
+-   Journal compose and list views
+-   Service worker for offline caching
+-   App manifest and install prompt
+
+### v0.19.x --- Kubernetes Manifests
+
+Cloud-native deployment.
+
+-   One Deployment + Service per microservice
+-   ConfigMap and Secret externalization
+-   Horizontal Pod Autoscaler on journal and AI services
+-   Helm chart or kustomize overlay
+-   Load test with k6 to validate scaling
+
+### v1.0.0 --- Public Release
+
+Hardening, polish, and launch.
+
+-   Performance budgets verified (p50 / p95 / p99 per route)
+-   Security audit pass (dependency scan, headers, secrets review)
+-   Documentation freeze
+-   Demo environment with seeded sample data
+-   Public landing page
+
+------------------------------------------------------------------------
+
 # System Architecture
 
 The platform follows a **cloud-native event-driven microservices
