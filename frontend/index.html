@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Joy — Journal</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Joy</h1>
+    <div id="session" hidden>
+      <span id="whoami"></span>
+      <button id="logout" class="ghost">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="offline-banner" class="banner" hidden>
+      Offline — entries you save will sync when you reconnect.
+    </section>
+
+    <section id="auth-view">
+      <h2>Sign in</h2>
+      <form id="auth-form">
+        <input id="email" type="email" placeholder="email" autocomplete="email" required>
+        <input id="password" type="password" placeholder="password (8+ chars)"
+               autocomplete="current-password" minlength="8" required>
+        <div class="row">
+          <button type="submit" data-mode="login">Log in</button>
+          <button type="submit" data-mode="register" class="ghost">Register</button>
+        </div>
+        <p id="auth-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="journal-view" hidden>
+      <form id="compose">
+        <input id="title" placeholder="Title" maxlength="200" required>
+        <textarea id="content" placeholder="How was your day?" rows="4"></textarea>
+        <div class="row">
+          <label>Mood
+            <select id="mood">
+              <option value="">–</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option>
+              <option>5</option><option>6</option><option>7</option><option>8</option>
+              <option>9</option><option>10</option>
+            </select>
+          </label>
+          <input id="tags" placeholder="tags, comma separated">
+          <button type="submit">Save entry</button>
+        </div>
+        <p id="compose-error" class="error" role="alert"></p>
+      </form>
+
+      <div class="row space-between">
+        <h2>Entries</h2>
+        <input id="search" type="search" placeholder="Search…">
+      </div>
+      <ul id="entries"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

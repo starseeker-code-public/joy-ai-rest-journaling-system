@@ -8,6 +8,7 @@ services:
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./gateway/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - api
     healthcheck:

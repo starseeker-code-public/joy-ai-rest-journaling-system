@@ -363,17 +363,17 @@ Per-user accounting of every AI call.
 -   Event consumers reconnect with backoff; compose restart policies added
 -   Tests
 
-## Planned
-
-### v0.18.x --- PWA Frontend
+### v0.18.x --- PWA Frontend *(done)*
 
 Standalone Progressive Web App client.
 
--   New `frontend/` workspace (framework TBD: React / Svelte / Vue)
--   Auth flow against existing JWT endpoints
--   Journal compose and list views
--   Service worker for offline caching
--   App manifest and install prompt
+-   `frontend/` workspace: dependency-free vanilla JS (no build step)
+-   Auth flow against the JWT endpoints; journal compose/list/search views
+-   Service worker: cache-first shell, network-first entries with fallback
+-   Offline compose queue flushed on reconnect
+-   App manifest + icon; served by the nginx gateway at `/`
+
+## Planned
 
 ### v0.19.x --- Kubernetes Manifests
 

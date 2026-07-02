@@ -1,0 +1,12 @@
+{
+  "name": "Joy — AI Journal",
+  "short_name": "Joy",
+  "description": "AI-powered journaling: mood, habits, goals, and insights.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
