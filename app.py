@@ -17,6 +17,7 @@ from app.utils.logging_config import configure_logging
 from app.utils.request_logging import register_request_logging
 from app.utils.metrics import register_metrics
 from app.services.analytics_service import AnalyticsService
+from app.utils.tracing import configure_tracing, instrument_flask, instrument_pika
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
 from app.utils.redis_rate_limiter import RedisRateLimiter
@@ -43,7 +44,10 @@ def _check_secret_key() -> None:
 def create_app() -> Flask:
     _check_secret_key()
     configure_logging()
+    configure_tracing('joy-api')
+    instrument_pika()
     app = Flask(__name__)
+    instrument_flask(app)
     register_request_logging(app)
     # Trust one proxy hop (the nginx gateway) so request.remote_addr is the
     # real client IP — otherwise the login rate limiter would collapse every

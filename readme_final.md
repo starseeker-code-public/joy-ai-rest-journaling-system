@@ -321,17 +321,18 @@ Operational visibility.
     distribution and 7-day active users pulled from ClickHouse at scrape time
 -   Grafana dashboard JSON at `grafana/joy-dashboard.json`
 
-## Planned
-
-### v0.14.x --- Distributed Tracing (OpenTelemetry)
+### v0.14.x --- Distributed Tracing (OpenTelemetry) *(done)*
 
 End-to-end request tracing across services.
 
--   OTel SDK and Flask/pika auto-instrumentation
--   Trace-context propagation across the event bus
--   Jaeger backend container
--   Sampled traces for slow-request endpoints
--   Docs on reading the trace UI
+-   OTel SDK with Flask + pika auto-instrumentation (all 6 services)
+-   Trace-context propagation across the event bus (verified: one trace
+    spans `POST /api/journals` through every worker)
+-   Jaeger all-in-one container; UI at http://localhost:16686
+-   Sampling via `OTEL_SAMPLE_RATIO` (ParentBased ratio sampler)
+-   Tracing activates only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+
+## Planned
 
 ### v0.15.x --- Object Storage (MinIO / S3)
 

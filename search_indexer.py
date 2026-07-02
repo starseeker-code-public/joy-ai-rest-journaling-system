@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from app.utils.event_consumer import EventConsumer
 from app.utils.logging_config import configure_logging
+from app.utils.tracing import configure_tracing, instrument_pika
 from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
 from app.utils.retry import with_retry
 from app.services.search_service import SearchService
@@ -44,6 +45,8 @@ def backfill(search_service: SearchService, collection) -> int:
 def main() -> None:
     load_dotenv()
     configure_logging()
+    configure_tracing('joy-search-indexer')
+    instrument_pika()
     from app.db import get_db
 
     search = SearchService()

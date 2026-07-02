@@ -5,8 +5,11 @@ load_dotenv()
 
 from app.utils.event_consumer import EventConsumer
 from app.utils.logging_config import configure_logging
+from app.utils.tracing import configure_tracing, instrument_pika
 
 configure_logging()
+configure_tracing('joy-consumer')
+instrument_pika()
 logger = logging.getLogger('joy.consumer')
 
 
