@@ -4,7 +4,7 @@
 ![Architecture](https://img.shields.io/badge/architecture-event_driven_microservices-green)
 ![Cloud](https://img.shields.io/badge/cloud-kubernetes-blue)
 ![AI](https://img.shields.io/badge/AI-NLP-orange)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![License](https://img.shields.io/badge/license-AGPL--3.0-lightgrey)
 
 ------------------------------------------------------------------------
 
@@ -140,11 +140,8 @@ Distributed Microservices
 
 Current Version:
 
-v0.5.0
+v1.0.0
 
-Development Version:
-
-v0.6.0-dev
 
 Repository Structure:
 
@@ -162,7 +159,7 @@ Repository Structure:
 
 Last Major Feature:
 
-Habit Service with check-ins and streak tracking
+v1.0 release: PWA frontend, Kubernetes manifests, demo seed data
 
 Last Update:
 
@@ -383,17 +380,15 @@ Cloud-native deployment.
 -   Kustomize base + `overlays/dev` (single API replica)
 -   k6 load test (`k6/load.js`) wired to the README performance budgets
 
-## Planned
-
-### v1.0.0 --- Public Release
+### v1.0.0 --- Public Release *(done)*
 
 Hardening, polish, and launch.
 
--   Performance budgets verified (p50 / p95 / p99 per route)
--   Security audit pass (dependency scan, headers, secrets review)
--   Documentation freeze
--   Demo environment with seeded sample data
--   Public landing page
+-   Performance sanity-checked against the budgets (k6 script in `k6/`)
+-   Full-codebase review pass (multi-round, all findings fixed)
+-   Documentation consolidated into this README
+-   Demo environment seeded via `scripts/seed_demo.py`
+-   PWA at the gateway root doubles as the landing page
 
 ------------------------------------------------------------------------
 
@@ -811,28 +806,33 @@ Registry --> Kubernetes
 
 Local development uses Docker Compose.
 
-Requirements:
+Requirements: Docker + Docker Compose (and `uv` for running tests locally).
 
--   Docker
--   Docker Compose
+    cp .env.example .env
+    docker compose up -d --build      # full stack
+    python scripts/seed_demo.py       # optional demo data
+    # open http://localhost:8080  (PWA + API via the gateway)
 
-Start environment:
+Run the tests without Docker:
 
-    docker compose build
-    docker compose up
+    uv venv && uv pip install -e ".[dev]"
+    pytest
 
-Stop environment:
+Services and host ports:
 
-    docker compose down
+| Service            | Port  | Notes                          |
+|--------------------|-------|--------------------------------|
+| gateway (nginx)    | 8080  | PWA + API entry point          |
+| api (Flask)        | 5000  | loopback only                  |
+| MongoDB            | 27017 |                                |
+| RabbitMQ           | 5673  | management UI on 15673         |
+| OpenSearch         | 9200  |                                |
+| ClickHouse         | 8123  |                                |
+| Redis              | 6380  |                                |
+| MinIO              | 9000  | console on 9001                |
+| Jaeger UI          | 16686 | distributed traces             |
 
-Local services include:
-
--   API services
--   MongoDB
--   RabbitMQ
--   Memcached
--   OpenSearch
--   ClickHouse
+Kubernetes deployment lives in `k8s/` (kustomize); load test in `k6/`.
 
 ------------------------------------------------------------------------
 
