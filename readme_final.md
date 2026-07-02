@@ -332,17 +332,17 @@ End-to-end request tracing across services.
 -   Sampling via `OTEL_SAMPLE_RATIO` (ParentBased ratio sampler)
 -   Tracing activates only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
 
-## Planned
-
-### v0.15.x --- Object Storage (MinIO / S3)
+### v0.15.x --- Object Storage (MinIO / S3) *(done)*
 
 Binary attachment storage.
 
--   MinIO container with bucket bootstrap
--   Presigned-URL upload endpoint
--   Attachment metadata persisted on journal entries
--   Background cleanup for orphaned objects
+-   MinIO container with mc-based bucket bootstrap (`minio-init`)
+-   Presigned upload/download endpoints under `/api/journals/<id>/attachments`
+-   Attachment metadata persisted on journal entries (user-scoped)
+-   Orphan cleanup script (`scripts/cleanup_orphans.py`)
 -   Tests using a fake S3 client
+
+## Planned
 
 ### v0.16.x --- Voice Notes (Whisper STT)
 

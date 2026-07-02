@@ -73,6 +73,7 @@ class JournalService:
             'tags': _validate_tags(tags),
             'kind': _validate_kind(kind),
             'ai': {},
+            'attachments': [],
         }
         self.collection.insert_one(entry)
         result = strip_doc(entry)
@@ -130,6 +131,56 @@ class JournalService:
         # date lets downstream consumers (e.g. insights) target the right week
         self._publish(JOURNAL_DELETED, {'id': uid, 'user_id': user_id, 'date': doc.get('date')})
         return True
+
+    def add_attachment(self, user_id: str, uid: str, attachment: dict) -> dict | None:
+        result = self.collection.find_one_and_update(
+            {'id': uid, 'user_id': user_id},
+            {'$push': {'attachments': attachment}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return strip_doc(result) if result else None
+
+    def remove_attachment(self, user_id: str, uid: str, attachment_id: str) -> dict | None:
+        """Detach and return the attachment metadata, or None if not found."""
+        entry = self.collection.find_one({'id': uid, 'user_id': user_id})
+        if entry is None:
+            return None
+        attachment = next(
+            (a for a in entry.get('attachments', []) if a['id'] == attachment_id), None
+        )
+        if attachment is None:
+            return None
+        self.collection.update_one(
+            {'id': uid, 'user_id': user_id},
+            {'$pull': {'attachments': {'id': attachment_id}}},
+        )
+        return attachment
+
+    def get_attachment(self, user_id: str, uid: str, attachment_id: str) -> dict | None:
+        entry = self.collection.find_one({'id': uid, 'user_id': user_id})
+        if entry is None:
+            return None
+        return next(
+            (a for a in entry.get('attachments', []) if a['id'] == attachment_id), None
+        )
+
+    def all_attachments(self):
+        """Yield (user_id, entry_id, attachment) for every attachment."""
+        cursor = self.collection.find(
+            {'attachments.0': {'$exists': True}},
+            {'id': 1, 'user_id': 1, 'attachments': 1, '_id': 0},
+        )
+        for entry in cursor:
+            for attachment in entry['attachments']:
+                yield entry['user_id'], entry['id'], attachment
+
+    def referenced_object_keys(self) -> set[str]:
+        """All attachment object keys across every entry (for orphan cleanup)."""
+        keys = set()
+        for entry in self.collection.find({'attachments.0': {'$exists': True}},
+                                          {'attachments': 1, '_id': 0}):
+            keys.update(a['object_key'] for a in entry['attachments'])
+        return keys
 
     def set_sentiment(
         self,

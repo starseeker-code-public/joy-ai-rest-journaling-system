@@ -18,6 +18,7 @@ from app.utils.request_logging import register_request_logging
 from app.utils.metrics import register_metrics
 from app.services.analytics_service import AnalyticsService
 from app.utils.tracing import configure_tracing, instrument_flask, instrument_pika
+from app.services.storage_service import StorageService
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
 from app.utils.redis_rate_limiter import RedisRateLimiter
@@ -56,7 +57,12 @@ def create_app() -> Flask:
     publisher = EventPublisher()
     atexit.register(publisher.close)
     # Client construction is lazy: no connection happens until a search runs
-    register_journal_routes(app, publisher=publisher, search_service=SearchService())
+    register_journal_routes(
+        app,
+        publisher=publisher,
+        search_service=SearchService(),
+        storage_service=StorageService(),
+    )
     # Redis-backed limiter/cache (both fail open if Redis is down)
     register_auth_routes(
         app,

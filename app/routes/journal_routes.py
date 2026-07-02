@@ -9,7 +9,8 @@ from app.utils.validators import parse_iso_date
 logger = logging.getLogger(__name__)
 
 
-def register_journal_routes(app, service=None, publisher=None, search_service=None):
+def register_journal_routes(app, service=None, publisher=None, search_service=None,
+                            storage_service=None):
     if service is None:
         service = JournalService(publisher=publisher)
 
@@ -102,6 +103,74 @@ def register_journal_routes(app, service=None, publisher=None, search_service=No
     @require_auth
     def delete_entry(uid):
         return ('', 204) if service.delete(g.user_id, uid) else (jsonify({'error': 'Not found'}), 404)
+
+    @app.route('/api/journals/<uid>/attachments', methods=['POST'])
+    @require_auth
+    def create_attachment(uid):
+        if storage_service is None:
+            return jsonify({'error': 'Storage is not available'}), 503
+        data = json_body()
+        filename = data.get('filename')
+        if not isinstance(filename, str) or not filename.strip():
+            return jsonify({'error': 'Filename required'}), 400
+        if service.get_one(g.user_id, uid) is None:
+            return jsonify({'error': 'Not found'}), 404
+        from uuid import uuid4
+        from app.utils.tools import standard_now
+        try:
+            grant = storage_service.presign_upload(g.user_id, filename)
+        except Exception:
+            logger.exception('Storage backend unavailable')
+            return jsonify({'error': 'Storage is temporarily unavailable'}), 503
+        attachment = {
+            'id': str(uuid4()),
+            'object_key': grant['object_key'],
+            'filename': filename.strip(),
+            'content_type': data.get('content_type'),
+            'created_at': standard_now(),
+        }
+        service.add_attachment(g.user_id, uid, attachment)
+        return jsonify({
+            'attachment': attachment,
+            'upload_url': grant['upload_url'],
+            'expires_in': grant['expires_in'],
+        }), 201
+
+    @app.route('/api/journals/<uid>/attachments/<aid>', methods=['GET'])
+    @require_auth
+    def download_attachment(uid, aid):
+        if storage_service is None:
+            return jsonify({'error': 'Storage is not available'}), 503
+        attachment = service.get_attachment(g.user_id, uid, aid)
+        if attachment is None:
+            return jsonify({'error': 'Not found'}), 404
+        from app.services.storage_service import ObjectMissing, ObjectTooLarge
+        try:
+            grant = storage_service.presign_download(attachment['object_key'])
+        except ObjectMissing:
+            return jsonify({'error': 'Upload not completed'}), 409
+        except ObjectTooLarge:
+            service.remove_attachment(g.user_id, uid, aid)
+            return jsonify({'error': 'Attachment exceeds the size limit'}), 413
+        except Exception:
+            logger.exception('Storage backend unavailable')
+            return jsonify({'error': 'Storage is temporarily unavailable'}), 503
+        return jsonify({'attachment': attachment, **grant}), 200
+
+    @app.route('/api/journals/<uid>/attachments/<aid>', methods=['DELETE'])
+    @require_auth
+    def delete_attachment(uid, aid):
+        if storage_service is None:
+            return jsonify({'error': 'Storage is not available'}), 503
+        attachment = service.remove_attachment(g.user_id, uid, aid)
+        if attachment is None:
+            return jsonify({'error': 'Not found'}), 404
+        try:
+            storage_service.delete_object(attachment['object_key'])
+        except Exception:
+            # Metadata is gone; the orphan sweep will reap the object later
+            logger.exception('Failed to delete object %s', attachment['object_key'])
+        return ('', 204)
 
     @app.route('/api/journals/<uid>/sentiment', methods=['GET'])
     @require_auth
