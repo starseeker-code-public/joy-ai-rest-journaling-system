@@ -292,17 +292,17 @@ caching layer.
 -   `/auth/me` lookups cached with a 60s TTL
 -   Tests using fakeredis
 
-## Planned
-
-### v0.11.x --- API Gateway
+### v0.11.x --- API Gateway *(done)*
 
 Unified entry point in front of services.
 
--   Reverse proxy container (Nginx or Traefik)
--   Central route registry
--   Auth verification at the gateway (offload service-side check where safe)
--   Per-route rate-limit configuration
--   Aggregated `/health` across services
+-   Nginx reverse proxy container on port 8080
+-   Central route registry (`gateway/nginx.conf`)
+-   Per-route edge rate limits (`/auth/login` stricter than `/api/*`)
+-   Aggregated `/health` reporting Mongo, Redis, RabbitMQ, OpenSearch, ClickHouse
+-   JWT verification stays service-side (nginx would need njs; documented)
+
+## Planned
 
 ### v0.12.x --- Structured Logging (structlog)
 
