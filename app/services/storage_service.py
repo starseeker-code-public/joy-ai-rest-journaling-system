@@ -105,6 +105,9 @@ class StorageService:
         url = self.presign_client.presigned_get_object(self.bucket, object_key, expires=DOWNLOAD_TTL)
         return {'download_url': url, 'expires_in': int(DOWNLOAD_TTL.total_seconds())}
 
+    def download_to(self, object_key: str, path: str) -> None:
+        self.client.fget_object(self.bucket, object_key, path)
+
     def delete_object(self, object_key: str) -> None:
         self.client.remove_object(self.bucket, object_key)
 

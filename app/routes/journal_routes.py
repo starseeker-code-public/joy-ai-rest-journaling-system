@@ -8,6 +8,16 @@ from app.utils.validators import parse_iso_date
 
 logger = logging.getLogger(__name__)
 
+_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.m4a', '.ogg', '.flac', '.webm', '.aac', '.opus'}
+
+
+def _looks_like_audio(attachment: dict) -> bool:
+    content_type = attachment.get('content_type')
+    if isinstance(content_type, str) and content_type:
+        return content_type.startswith('audio/')
+    filename = attachment.get('filename', '')
+    return any(filename.lower().endswith(ext) for ext in _AUDIO_EXTENSIONS)
+
 
 def register_journal_routes(app, service=None, publisher=None, search_service=None,
                             storage_service=None):
@@ -171,6 +181,29 @@ def register_journal_routes(app, service=None, publisher=None, search_service=No
             # Metadata is gone; the orphan sweep will reap the object later
             logger.exception('Failed to delete object %s', attachment['object_key'])
         return ('', 204)
+
+    @app.route('/api/journals/<uid>/attachments/<aid>/transcribe', methods=['POST'])
+    @require_auth
+    def transcribe_attachment(uid, aid):
+        if storage_service is None:
+            return jsonify({'error': 'Storage is not available'}), 503
+        attachment = service.get_attachment(g.user_id, uid, aid)
+        if attachment is None:
+            return jsonify({'error': 'Not found'}), 404
+        if not _looks_like_audio(attachment):
+            return jsonify({'error': 'Attachment is not an audio file'}), 400
+        from app.services.storage_service import ObjectMissing, ObjectTooLarge
+        try:
+            # Confirms the audio actually landed before queueing transcription
+            if storage_service.object_size(attachment['object_key']) is None:
+                raise ObjectMissing(attachment['object_key'])
+        except ObjectMissing:
+            return jsonify({'error': 'Upload not completed'}), 409
+        except Exception:
+            logger.exception('Storage backend unavailable')
+            return jsonify({'error': 'Storage is temporarily unavailable'}), 503
+        service.request_transcription(g.user_id, uid, aid)
+        return jsonify({'status': 'queued'}), 202
 
     @app.route('/api/journals/<uid>/sentiment', methods=['GET'])
     @require_auth

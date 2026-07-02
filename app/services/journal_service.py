@@ -3,7 +3,13 @@ from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
 from app.utils.validators import require_string
-from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
+from app.utils.events import (
+    JOURNAL_CREATED,
+    JOURNAL_DELETED,
+    JOURNAL_TRANSCRIBED,
+    JOURNAL_UPDATED,
+    JOURNAL_VOICE_UPLOADED,
+)
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
@@ -173,6 +179,58 @@ class JournalService:
         for entry in cursor:
             for attachment in entry['attachments']:
                 yield entry['user_id'], entry['id'], attachment
+
+    def request_transcription(self, user_id: str, uid: str, attachment_id: str) -> dict | None:
+        """Publish a voice-uploaded event for the attachment. Returns it, or None."""
+        entry = self.collection.find_one({'id': uid, 'user_id': user_id})
+        if entry is None:
+            return None
+        attachment = next(
+            (a for a in entry.get('attachments', []) if a['id'] == attachment_id), None
+        )
+        if attachment is None:
+            return None
+        self._publish(JOURNAL_VOICE_UPLOADED, {
+            'id': uid,
+            'user_id': user_id,
+            'date': entry.get('date'),
+            'attachment_id': attachment_id,
+            'object_key': attachment['object_key'],
+        })
+        return attachment
+
+    def set_transcript(self, user_id: str, uid: str, attachment_id: str,
+                       transcription: dict) -> dict | None:
+        """Store the transcription on the attachment; if the entry has no
+        content yet, the transcript becomes the content. Publishes
+        journal.transcribed so the sentiment pipeline reruns on the text.
+
+        Uses index-path updates (mongomock lacks arrayFilters); attachments
+        are append-only so indexes are stable.
+        """
+        entry = self.collection.find_one({'id': uid, 'user_id': user_id})
+        if entry is None:
+            return None
+        index = next(
+            (i for i, a in enumerate(entry.get('attachments', []))
+             if a['id'] == attachment_id),
+            None,
+        )
+        if index is None:
+            return None
+        patch = {f'attachments.{index}.transcription': transcription}
+        if not (entry.get('content') or '').strip():
+            patch['content'] = transcription['text']
+        result = self.collection.find_one_and_update(
+            {'id': uid, 'user_id': user_id},
+            {'$set': patch},
+            return_document=ReturnDocument.AFTER,
+        )
+        if result is None:  # entry deleted while transcribing
+            return None
+        result = strip_doc(result)
+        self._publish(JOURNAL_TRANSCRIBED, result)
+        return result
 
     def referenced_object_keys(self) -> set[str]:
         """All attachment object keys across every entry (for orphan cleanup)."""

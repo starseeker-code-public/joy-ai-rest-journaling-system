@@ -6,7 +6,7 @@ from app.utils.event_consumer import EventConsumer
 from app.utils.logging_config import configure_logging
 from app.utils.tracing import configure_tracing, instrument_pika
 from app.utils.event_publisher import EventPublisher
-from app.utils.events import JOURNAL_ANALYZED, JOURNAL_CREATED
+from app.utils.events import JOURNAL_ANALYZED, JOURNAL_CREATED, JOURNAL_TRANSCRIBED
 from app.services.analysis_service import AnalysisService
 from app.services.journal_service import JournalService
 
@@ -58,7 +58,8 @@ def main() -> None:
     publisher = EventPublisher()
     consumer = EventConsumer(
         queue_name='journal-analysis',
-        routing_keys=[JOURNAL_CREATED],
+        # journal.transcribed reruns sentiment over freshly transcribed audio
+        routing_keys=[JOURNAL_CREATED, JOURNAL_TRANSCRIBED],
     )
     handler = make_handler(analysis, journal_service, publisher=publisher)
     logger.info('Analysis worker starting...')

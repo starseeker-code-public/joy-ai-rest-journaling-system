@@ -89,6 +89,29 @@ services:
     volumes:
       - .:/app
 
+  transcription-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    command: python transcription_worker.py
+    environment:
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: joy
+      STORAGE_ENDPOINT: minio:9000
+      STORAGE_ACCESS_KEY: joy
+      STORAGE_SECRET_KEY: joysecret
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
   search-indexer:
     build: .
     command: python search_indexer.py

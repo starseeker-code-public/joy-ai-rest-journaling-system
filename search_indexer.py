@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from app.utils.event_consumer import EventConsumer
 from app.utils.logging_config import configure_logging
 from app.utils.tracing import configure_tracing, instrument_pika
-from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
+from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_TRANSCRIBED, JOURNAL_UPDATED
 from app.utils.retry import with_retry
 from app.services.search_service import SearchService
 
@@ -52,7 +52,8 @@ def main() -> None:
     search = SearchService()
     consumer = EventConsumer(
         queue_name='journal-search-indexer',
-        routing_keys=[JOURNAL_CREATED, JOURNAL_UPDATED, JOURNAL_DELETED],
+        # transcribed events re-index the entry with its new content
+        routing_keys=[JOURNAL_CREATED, JOURNAL_UPDATED, JOURNAL_DELETED, JOURNAL_TRANSCRIBED],
     )
     # Bind the queue first so events published during the backfill buffer
     # in RabbitMQ instead of being dropped by the exchange.

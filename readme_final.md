@@ -342,17 +342,17 @@ Binary attachment storage.
 -   Orphan cleanup script (`scripts/cleanup_orphans.py`)
 -   Tests using a fake S3 client
 
-## Planned
-
-### v0.16.x --- Voice Notes (Whisper STT)
+### v0.16.x --- Voice Notes (Whisper STT) *(done)*
 
 Audio capture and transcription.
 
--   Whisper-based transcription service or external API client
--   New `kind: voice` journal flow with audio attachment
--   Transcription event reuses the sentiment pipeline
--   Per-voice-note cost recorded for v0.17
+-   Local Whisper transcription worker (`transcription_worker.py`, whisper-tiny)
+-   `kind: voice` flow: attach audio, then POST `.../attachments/<id>/transcribe`
+-   `journal.transcribed` reruns the sentiment pipeline and re-indexes search
+-   Per-voice-note model/duration/cost recorded on the attachment (for v0.17)
 -   Tests with a stub transcriber
+
+## Planned
 
 ### v0.17.x --- AI Cost Tracking
 
