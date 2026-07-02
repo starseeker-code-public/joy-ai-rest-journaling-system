@@ -16,7 +16,8 @@ class EventPublisher:
     """
 
     def __init__(self, url: str | None = None, connection_factory=None):
-        self.url = url or os.getenv('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672/')
+        # Default matches the compose broker's host-published port (5673)
+        self.url = url or os.getenv('RABBITMQ_URL', 'amqp://joy:joy@localhost:5673/')
         self._connection_factory = connection_factory or self._default_connection_factory
         self._local = threading.local()
 

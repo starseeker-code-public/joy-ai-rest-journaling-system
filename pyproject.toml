@@ -1,6 +1,6 @@
 [project]
 name = "joy-ai-manifestation-platform"
-version = "0.3.0"
+version = "0.5.0"
 description = "Journaling backend — Flask + MongoDB + RabbitMQ event bus."
 requires-python = ">=3.11"
 
@@ -12,6 +12,15 @@ dependencies = [
     "pyjwt",
     "pika",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+# Keep the repo root importable so tests can import tests.conftest helpers
+# regardless of whether pytest is invoked as `pytest` or `python -m pytest`.
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [project.optional-dependencies]
 dev = [

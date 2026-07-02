@@ -7,19 +7,14 @@ from app.routes.auth_routes import register_auth_routes
 from app.services.journal_service import JournalService
 from app.services.user_service import UserService
 from app.utils.rate_limiter import RateLimiter
+from tests.conftest import register_and_login as _register_and_login
 
 
 @pytest.fixture
-def app():
-    mongo = mongomock.MongoClient()['joy']
-    app = Flask(__name__)
-    app.config['TESTING'] = True
-    app.config['_test_journals_collection'] = mongo['journals']
-    user_service = UserService(collection=mongo['users'])
+def app(mongo, make_app):
     journal_service = JournalService(collection=mongo['journals'])
-    permissive = RateLimiter(max_attempts=1000, window_seconds=60)
-    register_auth_routes(app, user_service=user_service, login_limiter=permissive)
-    register_journal_routes(app, service=journal_service)
+    app = make_app(lambda a: register_journal_routes(a, service=journal_service))
+    app.config['_test_journals_collection'] = mongo['journals']
 
     @app.route('/health', methods=['GET'])
     def health():
@@ -32,12 +27,6 @@ def app():
 def client(app):
     with app.test_client() as c:
         yield c
-
-
-def _register_and_login(client, email='a@example.com', password='secret123'):
-    client.post('/auth/register', json={'email': email, 'password': password})
-    token = client.post('/auth/login', json={'email': email, 'password': password}).get_json()['token']
-    return {'Authorization': f'Bearer {token}'}
 
 
 @pytest.fixture
@@ -112,6 +101,11 @@ def test_create_missing_title_returns_400(client, auth_headers):
 
 def test_create_empty_body_returns_400(client, auth_headers):
     assert client.post('/api/journals', json={}, headers=auth_headers).status_code == 400
+
+
+def test_create_non_object_json_body_returns_400(client, auth_headers):
+    res = client.post('/api/journals', data='"a title"', content_type='application/json', headers=auth_headers)
+    assert res.status_code == 400
 
 
 # --- get single ---

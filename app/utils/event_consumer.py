@@ -25,7 +25,8 @@ class EventConsumer:
     ):
         self.queue_name = queue_name
         self.routing_keys = routing_keys
-        self.url = url or os.getenv('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672/')
+        # Default matches the compose broker's host-published port (5673)
+        self.url = url or os.getenv('RABBITMQ_URL', 'amqp://joy:joy@localhost:5673/')
         self._connection_factory = connection_factory or self._default_connection_factory
         self._connection = None
         self._channel = None

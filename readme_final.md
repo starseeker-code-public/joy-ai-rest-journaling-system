@@ -140,11 +140,11 @@ Distributed Microservices
 
 Current Version:
 
-v0.3.0
+v0.5.0
 
 Development Version:
 
-v0.4.0-dev
+v0.6.0-dev
 
 Repository Structure:
 
@@ -162,11 +162,11 @@ Repository Structure:
 
 Last Major Feature:
 
-RabbitMQ event bus with publish/consume scaffolding
+Habit Service with check-ins and streak tracking
 
 Last Update:
 
-June 2026
+July 2026
 
 ------------------------------------------------------------------------
 
@@ -215,9 +215,7 @@ services will consume.
 -   EventConsumer and stub `consumer.py` service in compose
 -   End-to-end integration test with an in-memory fake broker
 
-## Planned
-
-### v0.4.x --- Sentiment Analysis (HuggingFace Transformers)
+### v0.4.x --- Sentiment Analysis (HuggingFace Transformers) *(done)*
 
 First AI capability: sentiment scoring on journal content.
 
@@ -228,17 +226,19 @@ First AI capability: sentiment scoring on journal content.
 -   `GET /api/journals/<id>/sentiment` endpoint
 -   Tests with a stub model for deterministic CI
 
-### v0.5.x --- Habit Service
+### v0.5.x --- Habit Service *(done)*
 
 Second domain entity: trackable habits with streaks. No new technology ---
 proves the stack scales to more services.
 
--   Habit data model (name, target_freq, user_id, timestamps)
+-   Habit data model (name, frequency, user_id, timestamps)
 -   HabitService CRUD with user scoping
 -   `/api/habits` routes (auth-gated)
--   Habit-check endpoint to record a completion
--   Streak calculation logic
+-   Habit-check endpoint to record a completion (idempotent per date)
+-   Daily and weekly streak calculation with a one-period grace window
 -   Tests for ownership isolation and streak math
+
+## Planned
 
 ### v0.6.x --- Goal Service
 

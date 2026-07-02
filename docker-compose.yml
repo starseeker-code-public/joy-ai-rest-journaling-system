@@ -60,8 +60,9 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      # Published on 5673/15673 to avoid clashing with a host RabbitMQ on 5672
+      - "5673:5672"
+      - "15673:15672"
     environment:
       RABBITMQ_DEFAULT_USER: joy
       RABBITMQ_DEFAULT_PASS: joy

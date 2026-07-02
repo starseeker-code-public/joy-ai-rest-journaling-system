@@ -1,6 +1,7 @@
-from flask import request, jsonify, g
+from flask import jsonify, g
 from app.services.journal_service import JournalService
 from app.utils.auth import require_auth
+from app.utils.tools import json_body
 
 
 def register_journal_routes(app, service=None, publisher=None):
@@ -15,8 +16,8 @@ def register_journal_routes(app, service=None, publisher=None):
     @app.route('/api/journals', methods=['POST'])
     @require_auth
     def create_entry():
-        data = request.json
-        if not data or 'title' not in data:
+        data = json_body()
+        if 'title' not in data:
             return jsonify({'error': 'Title required'}), 400
         try:
             entry = service.create(
@@ -40,7 +41,7 @@ def register_journal_routes(app, service=None, publisher=None):
     @app.route('/api/journals/<uid>', methods=['PUT'])
     @require_auth
     def update_entry(uid):
-        data = request.json or {}
+        data = json_body()
         try:
             res = service.update(
                 g.user_id, uid,
