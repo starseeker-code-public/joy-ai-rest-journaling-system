@@ -6,8 +6,9 @@ from time import monotonic
 class RateLimiter:
     """In-memory token-bucket-style rate limiter.
 
-    Not durable across restarts and not shared across workers — placeholder
-    until a Redis-backed limiter lands in phase 3.
+    Not durable across restarts and not shared across workers. Production
+    uses RedisRateLimiter (app/utils/redis_rate_limiter.py); this remains
+    for tests and Redis-less local runs.
     """
 
     def __init__(self, max_attempts: int, window_seconds: int):

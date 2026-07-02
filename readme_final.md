@@ -281,18 +281,18 @@ Weekly behavioral insights derived from analytics. Builds on v0.4 + v0.8.
 -   `/api/insights` endpoint
 -   Aggregation tests on canned analytics data
 
-## Planned
-
-### v0.10.x --- Distributed Cache & Rate Limiting (Redis)
+### v0.10.x --- Distributed Cache & Rate Limiting (Redis) *(done)*
 
 Replace the in-memory rate limiter with a shared, durable backend; add a
 caching layer.
 
--   Add Redis container
--   RedisRateLimiter implementing the existing `allow()` interface
--   Switch login limiter to Redis
--   Cache `/me` lookups with TTL
+-   Redis container with healthcheck (published on 6380)
+-   RedisRateLimiter implementing the existing `allow()` interface (fails open)
+-   Login limiter switched to Redis in `create_app`
+-   `/auth/me` lookups cached with a 60s TTL
 -   Tests using fakeredis
+
+## Planned
 
 ### v0.11.x --- API Gateway
 

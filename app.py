@@ -13,6 +13,8 @@ from app.routes.analytics_routes import register_analytics_routes
 from app.routes.insight_routes import register_insight_routes
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
+from app.utils.redis_rate_limiter import RedisRateLimiter
+from app.utils.user_cache import UserCache
 
 DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'
 
@@ -39,7 +41,12 @@ def create_app() -> Flask:
     atexit.register(publisher.close)
     # Client construction is lazy: no connection happens until a search runs
     register_journal_routes(app, publisher=publisher, search_service=SearchService())
-    register_auth_routes(app)
+    # Redis-backed limiter/cache (both fail open if Redis is down)
+    register_auth_routes(
+        app,
+        login_limiter=RedisRateLimiter(max_attempts=5, window_seconds=15 * 60),
+        user_cache=UserCache(),
+    )
     register_habit_routes(app)
     register_goal_routes(app)
     register_analytics_routes(app)

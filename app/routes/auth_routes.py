@@ -6,7 +6,7 @@ from app.utils.rate_limiter import RateLimiter
 from app.utils.tools import strip_doc
 
 
-def register_auth_routes(app, user_service=None, login_limiter=None):
+def register_auth_routes(app, user_service=None, login_limiter=None, user_cache=None):
     if user_service is None:
         user_service = UserService()
     if login_limiter is None:
@@ -51,7 +51,14 @@ def register_auth_routes(app, user_service=None, login_limiter=None):
         payload = decode_token(token)
         if not payload:
             return jsonify({'error': 'Invalid token'}), 401
-        user = user_service.get_by_id(payload['sub'])
+        user_id = payload['sub']
+        if user_cache is not None:
+            cached = user_cache.get(user_id)
+            if cached is not None:
+                return jsonify(cached), 200
+        user = user_service.get_by_id(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 401
+        if user_cache is not None:
+            user_cache.set(user_id, user)
         return jsonify(user), 200

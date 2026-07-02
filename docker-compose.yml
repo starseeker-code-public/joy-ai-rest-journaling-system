@@ -13,10 +13,13 @@ services:
       OPENSEARCH_URL: http://opensearch:9200
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       mongo:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - .:/app
@@ -78,6 +81,19 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+
+  redis:
+    image: redis:7
+    ports:
+      # Published on 6380 to avoid clashing with a host Redis on 6379
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   analytics-sink:
     build: .
@@ -167,3 +183,4 @@ volumes:
   rabbitmq-data:
   opensearch-data:
   clickhouse-data:
+  redis-data:
