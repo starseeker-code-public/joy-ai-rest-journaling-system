@@ -15,17 +15,6 @@ def app(mongo, make_app):
     return make_app(lambda app: register_habit_routes(app, service=habit_service))
 
 
-@pytest.fixture
-def client(app):
-    with app.test_client() as c:
-        yield c
-
-
-@pytest.fixture
-def auth_headers(client):
-    return _register_and_login(client)
-
-
 def _days_ago(n: int) -> str:
     # The service anchors "today" to UTC; local dates would flake near midnight.
     return (utc_today() - timedelta(days=n)).isoformat()

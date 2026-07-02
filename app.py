@@ -8,6 +8,7 @@ from flask import Flask, jsonify
 from app.routes.journal_routes import register_journal_routes
 from app.routes.auth_routes import register_auth_routes
 from app.routes.habit_routes import register_habit_routes
+from app.routes.goal_routes import register_goal_routes
 from app.utils.event_publisher import EventPublisher
 
 DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'
@@ -36,6 +37,7 @@ def create_app() -> Flask:
     register_journal_routes(app, publisher=publisher)
     register_auth_routes(app)
     register_habit_routes(app)
+    register_goal_routes(app)
 
     @app.route('/health', methods=['GET'])
     def health():

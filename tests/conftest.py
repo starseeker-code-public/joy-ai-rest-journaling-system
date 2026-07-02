@@ -28,6 +28,18 @@ def make_app(mongo):
     return factory
 
 
+@pytest.fixture
+def client(app):
+    """Test client for the module's `app` fixture."""
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.fixture
+def auth_headers(client):
+    return register_and_login(client)
+
+
 def register_and_login(client, email='a@example.com', password='secret123'):
     client.post('/auth/register', json={'email': email, 'password': password})
     token = client.post('/auth/login', json={'email': email, 'password': password}).get_json()['token']

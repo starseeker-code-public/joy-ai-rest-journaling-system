@@ -4,15 +4,10 @@ from uuid import uuid4
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from app.utils.tools import standard_now, strip_doc, utc_today
+from app.utils.validators import parse_iso_date, require_string
 from app.db import get_db
 
 VALID_FREQUENCIES = {'daily', 'weekly'}
-
-
-def _validate_name(name):
-    if not isinstance(name, str) or not name.strip():
-        raise ValueError('name must be a non-empty string')
-    return name.strip()
 
 
 def _validate_frequency(frequency):
@@ -31,12 +26,7 @@ def _validate_date(value) -> str:
     """
     if value is None:
         return utc_today().isoformat()
-    if not isinstance(value, str):
-        raise ValueError('date must be a YYYY-MM-DD string')
-    try:
-        parsed = date.fromisoformat(value)
-    except ValueError:
-        raise ValueError('date must be a YYYY-MM-DD string')
+    parsed = parse_iso_date(value, 'date')
     if parsed > utc_today() + timedelta(days=1):
         raise ValueError('date cannot be in the future')
     return parsed.isoformat()
@@ -113,7 +103,7 @@ class HabitService:
         habit = {
             'id': str(uuid4()),
             'user_id': user_id,
-            'name': _validate_name(name),
+            'name': require_string(name, 'name'),
             'frequency': _validate_frequency(frequency),
             'created_at': standard_now(),
         }
@@ -125,7 +115,7 @@ class HabitService:
     def update(self, user_id: str, uid: str, name=None, frequency=None) -> dict | None:
         patch = {}
         if name is not None:
-            patch['name'] = _validate_name(name)
+            patch['name'] = require_string(name, 'name')
         if frequency is not None:
             patch['frequency'] = _validate_frequency(frequency)
         if not patch:

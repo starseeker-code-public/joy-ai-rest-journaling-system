@@ -238,18 +238,18 @@ proves the stack scales to more services.
 -   Daily and weekly streak calculation with a one-period grace window
 -   Tests for ownership isolation and streak math
 
-## Planned
-
-### v0.6.x --- Goal Service
+### v0.6.x --- Goal Service *(done)*
 
 Third domain entity: goals with milestones.
 
--   Goal data model (title, milestones\[\], target_date, user_id)
--   GoalService CRUD
--   `/api/goals` routes
--   Milestone-complete endpoint
+-   Goal data model (title, description, milestones\[\], target_date, user_id)
+-   GoalService CRUD with user scoping
+-   `/api/goals` routes (auth-gated)
+-   Add-milestone and milestone-complete endpoints (idempotent)
 -   Progress calculation derived from milestones
--   Tests
+-   Tests for ownership isolation and progress math
+
+## Planned
 
 ### v0.7.x --- Full-text Search (OpenSearch)
 

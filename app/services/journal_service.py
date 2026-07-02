@@ -2,6 +2,7 @@ import logging
 from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
+from app.utils.validators import require_string
 from app.utils.events import JOURNAL_CREATED
 from app.db import get_db
 
@@ -65,7 +66,7 @@ class JournalService:
         entry = {
             'id': str(uuid4()),
             'user_id': user_id,
-            'title': title,
+            'title': require_string(title, 'title'),
             'content': content,
             'date': standard_now(),
             'mood': _validate_mood(mood),
@@ -98,7 +99,7 @@ class JournalService:
     ) -> dict | None:
         patch = {}
         if title is not None:
-            patch['title'] = title
+            patch['title'] = require_string(title, 'title')
         if content is not None:
             patch['content'] = content
         if mood is not None:

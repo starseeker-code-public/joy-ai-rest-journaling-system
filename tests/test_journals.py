@@ -23,17 +23,6 @@ def app(mongo, make_app):
     return app
 
 
-@pytest.fixture
-def client(app):
-    with app.test_client() as c:
-        yield c
-
-
-@pytest.fixture
-def auth_headers(client):
-    return _register_and_login(client)
-
-
 # --- auth gate ---
 
 def test_list_without_token_returns_401(client):
@@ -106,6 +95,11 @@ def test_create_empty_body_returns_400(client, auth_headers):
 def test_create_non_object_json_body_returns_400(client, auth_headers):
     res = client.post('/api/journals', data='"a title"', content_type='application/json', headers=auth_headers)
     assert res.status_code == 400
+
+
+def test_create_blank_or_non_string_title_returns_400(client, auth_headers):
+    assert client.post('/api/journals', json={'title': '   '}, headers=auth_headers).status_code == 400
+    assert client.post('/api/journals', json={'title': 42}, headers=auth_headers).status_code == 400
 
 
 # --- get single ---
