@@ -155,6 +155,31 @@ class AnalyticsService:
         )
         return [row[0] for row in result.result_rows]
 
+    def sentiment_distribution(self) -> list[tuple]:
+        """(label, count) of live entries by latest sentiment, across all users."""
+        result = self.client.query(
+            f'''SELECT sentiment_label, count() AS entries
+                FROM (
+                    SELECT journal_id,
+                           argMaxIf(sentiment_label, event_time,
+                                    event_type = 'journal.analyzed') AS sentiment_label,
+                           max(event_type = 'journal.deleted') AS deleted
+                    FROM {TABLE}
+                    GROUP BY journal_id
+                )
+                WHERE deleted = 0 AND sentiment_label != ''
+                GROUP BY sentiment_label''',
+        )
+        return [tuple(row) for row in result.result_rows]
+
+    def active_user_count(self, days: int = 7) -> int:
+        result = self.client.query(
+            f'''SELECT uniqExact(user_id) FROM {TABLE}
+                WHERE event_time >= now() - INTERVAL %(days)s DAY''',
+            parameters={'days': days},
+        )
+        return int(result.result_rows[0][0])
+
     def tag_frequency(self, user_id: str, limit: int = 10) -> list[dict]:
         result = self.client.query(
             f'''SELECT arrayJoin(tags) AS tag, count() AS uses

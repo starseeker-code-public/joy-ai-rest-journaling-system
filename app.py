@@ -15,6 +15,8 @@ from app.routes.insight_routes import register_insight_routes
 from app.routes.health_routes import register_health_routes
 from app.utils.logging_config import configure_logging
 from app.utils.request_logging import register_request_logging
+from app.utils.metrics import register_metrics
+from app.services.analytics_service import AnalyticsService
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
 from app.utils.redis_rate_limiter import RedisRateLimiter
@@ -59,9 +61,11 @@ def create_app() -> Flask:
     )
     register_habit_routes(app)
     register_goal_routes(app)
-    register_analytics_routes(app)
+    analytics = AnalyticsService()
+    register_analytics_routes(app, service=analytics)
     register_insight_routes(app)
     register_health_routes(app)
+    register_metrics(app, analytics_service=analytics)
 
     return app
 

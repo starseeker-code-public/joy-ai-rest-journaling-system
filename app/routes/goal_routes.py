@@ -1,6 +1,7 @@
 from flask import jsonify, g
 from app.services.goal_service import GoalService, UNSET
 from app.utils.auth import require_auth
+from app.utils.metrics import GOALS_CREATED
 from app.utils.tools import json_body
 
 
@@ -29,6 +30,7 @@ def register_goal_routes(app, service=None):
             )
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
+        GOALS_CREATED.inc()
         return jsonify(goal), 201
 
     @app.route('/api/goals/<uid>', methods=['GET'])

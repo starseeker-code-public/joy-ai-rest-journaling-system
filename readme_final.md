@@ -311,16 +311,17 @@ Production-grade logs.
 -   JSON output via `LOG_FORMAT=json`; console renderer by default
 -   Per-request log context (request_id, user_id, path, status, duration_ms)
 
-## Planned
-
-### v0.13.x --- Metrics (Prometheus)
+### v0.13.x --- Metrics (Prometheus) *(done)*
 
 Operational visibility.
 
--   Add prometheus_client and `/metrics` endpoint
--   Latency histograms per route
--   Business metrics (entries/day, sentiment distribution, active users)
--   Grafana dashboard JSON checked into the repo
+-   prometheus_client and `/metrics` endpoint on the API
+-   Latency histograms per route (`joy_http_request_duration_seconds`)
+-   Business metrics: entries/habit checks/goals counters, sentiment
+    distribution and 7-day active users pulled from ClickHouse at scrape time
+-   Grafana dashboard JSON at `grafana/joy-dashboard.json`
+
+## Planned
 
 ### v0.14.x --- Distributed Tracing (OpenTelemetry)
 

@@ -1,6 +1,7 @@
 from flask import jsonify, g
 from app.services.habit_service import HabitService
 from app.utils.auth import require_auth
+from app.utils.metrics import HABIT_CHECKS
 from app.utils.tools import json_body as _json_body
 
 
@@ -59,6 +60,8 @@ def register_habit_routes(app, service=None):
             res = service.check(g.user_id, uid, on_date=data.get('date'))
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
+        if res:
+            HABIT_CHECKS.inc()
         return jsonify(res) if res else (jsonify({'error': 'Not found'}), 404)
 
     @app.route('/api/habits/<uid>/logs', methods=['GET'])

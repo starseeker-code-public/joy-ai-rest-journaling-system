@@ -3,6 +3,7 @@ from flask import jsonify, g, request
 from app.services.journal_service import JournalService
 from app.utils.auth import require_auth
 from app.utils.tools import json_body
+from app.utils.metrics import ENTRIES_CREATED
 from app.utils.validators import parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ def register_journal_routes(app, service=None, publisher=None, search_service=No
             )
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
+        ENTRIES_CREATED.inc()
         return jsonify(entry), 201
 
     @app.route('/api/journals/search', methods=['GET'])

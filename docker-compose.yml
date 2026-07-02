@@ -20,7 +20,9 @@ services:
   api:
     build: .
     ports:
-      - "5000:5000"
+      # Loopback-only: external traffic goes through the gateway (8080),
+      # which never routes /metrics or other internal endpoints.
+      - "127.0.0.1:5000:5000"
     environment:
       FLASK_ENV: development
       DEBUG: "true"
