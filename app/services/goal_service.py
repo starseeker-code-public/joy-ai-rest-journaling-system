@@ -55,8 +55,10 @@ class GoalService:
         else:
             self.collection = collection
 
-    def get_all(self, user_id: str) -> list:
-        return [self._serialize(g) for g in self.collection.find({'user_id': user_id})]
+    def get_all(self, user_id: str, limit: int = 200) -> list:
+        limit = max(1, min(limit, 500))
+        return [self._serialize(g)
+                for g in self.collection.find({'user_id': user_id}).limit(limit)]
 
     def get_one(self, user_id: str, uid: str) -> dict | None:
         goal = self.collection.find_one({'id': uid, 'user_id': user_id})

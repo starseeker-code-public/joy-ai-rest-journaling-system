@@ -83,8 +83,10 @@ class HabitService:
                 else collection.database['habit_logs']
             )
 
-    def get_all(self, user_id: str) -> list:
-        habits = [strip_doc(h) for h in self.collection.find({'user_id': user_id})]
+    def get_all(self, user_id: str, limit: int = 200) -> list:
+        limit = max(1, min(limit, 500))
+        habits = [strip_doc(h) for h in
+                  self.collection.find({'user_id': user_id}).limit(limit)]
         if not habits:
             return habits
         dates_by_habit = defaultdict(set)

@@ -27,7 +27,12 @@ def register_journal_routes(app, service=None, publisher=None, search_service=No
     @app.route('/api/journals', methods=['GET'])
     @require_auth
     def list_entries():
-        return jsonify(service.get_all(g.user_id)), 200
+        try:
+            limit = int(request.args.get('limit', '50'))
+            skip = int(request.args.get('skip', '0'))
+        except ValueError:
+            return jsonify({'error': 'limit and skip must be integers'}), 400
+        return jsonify(service.get_all(g.user_id, limit=limit, skip=skip)), 200
 
     @app.route('/api/journals', methods=['POST'])
     @require_auth

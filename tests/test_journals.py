@@ -448,3 +448,24 @@ def test_set_sentiment_overwrites_previous_sentiment():
     updated = svc.set_sentiment('user-1', entry['id'], {'label': 'negative', 'score': 0.9})
     assert updated['ai']['sentiment']['label'] == 'negative'
     assert updated['ai']['sentiment']['score'] == 0.9
+
+
+# --- pagination (final review) ---
+
+def test_list_is_paginated_and_capped(client, auth_headers):
+    for i in range(5):
+        client.post('/api/journals', json={'title': f'E{i}'}, headers=auth_headers)
+    two = client.get('/api/journals?limit=2', headers=auth_headers).get_json()
+    assert len(two) == 2
+    # Newest first
+    page2 = client.get('/api/journals?limit=2&skip=2', headers=auth_headers).get_json()
+    assert {e['id'] for e in two}.isdisjoint({e['id'] for e in page2})
+
+
+def test_list_invalid_pagination_returns_400(client, auth_headers):
+    assert client.get('/api/journals?limit=abc', headers=auth_headers).status_code == 400
+
+
+def test_list_limit_is_capped_to_max(client, auth_headers):
+    # Over-large limit is clamped, not rejected
+    assert client.get('/api/journals?limit=99999', headers=auth_headers).status_code == 200

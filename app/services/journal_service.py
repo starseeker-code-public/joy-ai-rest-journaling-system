@@ -15,6 +15,7 @@ from app.db import get_db
 logger = logging.getLogger(__name__)
 
 VALID_KINDS = {'text', 'voice', 'photo', 'summary'}
+MAX_PAGE_SIZE = 200
 
 
 def _validate_mood(mood):
@@ -53,8 +54,12 @@ class JournalService:
             self.collection = collection
         self.publisher = publisher
 
-    def get_all(self, user_id: str) -> list:
-        return [strip_doc(e) for e in self.collection.find({'user_id': user_id})]
+    def get_all(self, user_id: str, limit: int = 50, skip: int = 0) -> list:
+        # Bounded page (newest first) so a large history can't OOM the response
+        limit = max(1, min(limit, MAX_PAGE_SIZE))
+        cursor = (self.collection.find({'user_id': user_id})
+                  .sort('date', -1).skip(max(skip, 0)).limit(limit))
+        return [strip_doc(e) for e in cursor]
 
     def get_one(self, user_id: str, uid: str) -> dict | None:
         e = self.collection.find_one({'id': uid, 'user_id': user_id})

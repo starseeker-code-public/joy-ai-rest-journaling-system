@@ -53,8 +53,17 @@ let queueSeq = 0;
 let flushing = false;
 
 function readQueue() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; }
+  let queue;
+  try { queue = JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; }
   catch { return []; }
+  // Backfill ids for entries persisted by an older build (no _qid), so
+  // id-based removal can't conflate them and drop un-attempted drafts.
+  let changed = false;
+  for (const item of queue) {
+    if (!item._qid) { item._qid = `legacy-${Date.now()}-${queueSeq++}`; changed = true; }
+  }
+  if (changed) writeQueue(queue);
+  return queue;
 }
 
 function writeQueue(queue) { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); }
