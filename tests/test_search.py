@@ -230,7 +230,9 @@ def test_delete_publishes_journal_deleted():
     svc.delete('user-1', entry['id'])
     routing_key, payload = publisher.publish.call_args.args
     assert routing_key == 'journal.deleted'
-    assert payload == {'id': entry['id'], 'user_id': 'user-1'}
+    assert payload['id'] == entry['id']
+    assert payload['user_id'] == 'user-1'
+    assert payload['date'] == entry['date']  # lets consumers target the entry's week
 
 
 def test_delete_of_missing_entry_publishes_nothing():

@@ -43,17 +43,41 @@ class EventPublisher:
             self._local.connection = connection
             self._local.channel = channel
 
+    def _reset(self) -> None:
+        connection = getattr(self._local, 'connection', None)
+        try:
+            if connection and connection.is_open:
+                connection.close()
+        except Exception:
+            pass  # already broken; dropping the reference is all that matters
+        self._local.connection = None
+        self._local.channel = None
+
     def publish(self, routing_key: str, payload: dict) -> None:
-        self._ensure_channel()
-        self._local.channel.basic_publish(
-            exchange=EXCHANGE_NAME,
-            routing_key=routing_key,
-            body=json.dumps(payload).encode('utf-8'),
-            properties=pika.BasicProperties(
-                content_type='application/json',
-                delivery_mode=2,
-            ),
+        body = json.dumps(payload).encode('utf-8')
+        properties = pika.BasicProperties(
+            content_type='application/json',
+            delivery_mode=2,
         )
+        try:
+            self._ensure_channel()
+            self._local.channel.basic_publish(
+                exchange=EXCHANGE_NAME,
+                routing_key=routing_key,
+                body=body,
+                properties=properties,
+            )
+        except pika.exceptions.AMQPError:
+            # A long-idle connection may be dead without is_closed knowing it
+            # (broker reset, heartbeat timeout). Reconnect once and retry.
+            self._reset()
+            self._ensure_channel()
+            self._local.channel.basic_publish(
+                exchange=EXCHANGE_NAME,
+                routing_key=routing_key,
+                body=body,
+                properties=properties,
+            )
 
     def close(self) -> None:
         connection = getattr(self._local, 'connection', None)

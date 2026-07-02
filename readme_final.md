@@ -271,17 +271,17 @@ Aggregate analytics separated from the operational database.
 -   `/api/analytics/tag-frequency` endpoint
 -   Tests with a fake ClickHouse client; live verification via compose
 
-## Planned
-
-### v0.9.x --- Insight Service
+### v0.9.x --- Insight Service *(done)*
 
 Weekly behavioral insights derived from analytics. Builds on v0.4 + v0.8.
 
--   Standalone Insight consumer service
--   Weekly aggregation scheduler
--   Insight model (period, summary, highlights)
+-   Standalone insight_worker consuming `journal.analyzed`
+-   Hourly scheduler materializing the previous completed week
+-   Insight model (period, summary, highlights, stats) upserted per user-week
 -   `/api/insights` endpoint
 -   Aggregation tests on canned analytics data
+
+## Planned
 
 ### v0.10.x --- Distributed Cache & Rate Limiting (Redis)
 

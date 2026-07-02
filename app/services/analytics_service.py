@@ -43,6 +43,8 @@ _LATEST_STATE = f'''
                     event_type IN ('journal.created', 'journal.updated')) AS entry_date,
            argMaxIf(tags, event_time,
                     event_type IN ('journal.created', 'journal.updated')) AS tags,
+           argMaxIf(sentiment_label, event_time,
+                    event_type = 'journal.analyzed') AS sentiment_label,
            max(event_type = 'journal.deleted') AS deleted
     FROM {TABLE}
     WHERE user_id = %(user_id)s
@@ -114,6 +116,44 @@ class AnalyticsService:
             {'date': day.isoformat(), 'avg_mood': avg_mood, 'entries': entries}
             for day, avg_mood, entries in result.result_rows
         ]
+
+    def week_stats(self, user_id: str, start: date, end: date) -> dict:
+        """Aggregate latest-state stats for entries dated within [start, end]."""
+        window = f'''({_LATEST_STATE})
+                WHERE deleted = 0
+                  AND entry_date >= %(start)s AND entry_date <= %(end)s'''
+        params = {'user_id': user_id, 'start': start.isoformat(), 'end': end.isoformat()}
+        totals = self.client.query(
+            f'''SELECT count() AS entries,
+                       round(avg(mood), 2) AS avg_mood,
+                       countIf(sentiment_label = 'positive') AS positive,
+                       countIf(sentiment_label = 'negative') AS negative
+                FROM {window}''',
+            parameters=params,
+        ).result_rows[0]
+        tags = self.client.query(
+            f'''SELECT arrayJoin(tags) AS tag, count() AS uses
+                FROM {window}
+                GROUP BY tag ORDER BY uses DESC, tag ASC LIMIT 3''',
+            parameters=params,
+        ).result_rows
+        entries, avg_mood, positive, negative = totals
+        return {
+            'entries': entries,
+            'avg_mood': avg_mood,
+            'positive': positive,
+            'negative': negative,
+            'top_tags': [tag for tag, _ in tags],
+        }
+
+    def active_users(self, start: date, end: date) -> list[str]:
+        """Users with any event whose entry_date falls within [start, end]."""
+        result = self.client.query(
+            f'''SELECT DISTINCT user_id FROM {TABLE}
+                WHERE entry_date >= %(start)s AND entry_date <= %(end)s''',
+            parameters={'start': start.isoformat(), 'end': end.isoformat()},
+        )
+        return [row[0] for row in result.result_rows]
 
     def tag_frequency(self, user_id: str, limit: int = 10) -> list[dict]:
         result = self.client.query(

@@ -1,3 +1,4 @@
+import pytest
 import json
 from unittest.mock import MagicMock
 from app.utils.event_publisher import EventPublisher
@@ -110,3 +111,47 @@ def test_publisher_is_thread_safe():
     # Each thread observed its own connection (4 distinct connections)
     assert len(connections_seen) == 4
     assert len(set(id(c) for c in connections_seen.values())) == 4
+
+
+def test_publish_reconnects_when_stale_connection_raises():
+    """A dead-but-not-marked-closed connection must trigger one reconnect+retry."""
+    import pika
+    connections = []
+
+    def make_conn():
+        connection = MagicMock()
+        channel = MagicMock()
+        connection.is_closed = False
+        connection.is_open = True
+        channel.is_closed = False
+        connection.channel.return_value = channel
+        if not connections:  # first connection dies on publish
+            channel.basic_publish.side_effect = pika.exceptions.StreamLostError('reset by peer')
+        connections.append(connection)
+        return connection
+
+    pub = EventPublisher(url='amqp://test/', connection_factory=make_conn)
+    pub.publish('journal.analyzed', {'id': 'e1'})
+
+    assert len(connections) == 2
+    fresh_channel = connections[1].channel.return_value
+    fresh_channel.basic_publish.assert_called_once()
+    assert fresh_channel.basic_publish.call_args.kwargs['routing_key'] == 'journal.analyzed'
+
+
+def test_publish_raises_if_reconnect_also_fails():
+    import pika
+
+    def make_conn():
+        connection = MagicMock()
+        channel = MagicMock()
+        connection.is_closed = False
+        connection.is_open = True
+        channel.is_closed = False
+        channel.basic_publish.side_effect = pika.exceptions.StreamLostError('still down')
+        connection.channel.return_value = channel
+        return connection
+
+    pub = EventPublisher(url='amqp://test/', connection_factory=make_conn)
+    with pytest.raises(pika.exceptions.StreamLostError):
+        pub.publish('journal.analyzed', {'id': 'e1'})

@@ -94,6 +94,25 @@ services:
     volumes:
       - .:/app
 
+  insight-worker:
+    build: .
+    command: python insight_worker.py
+    environment:
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: joy
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
   clickhouse:
     image: clickhouse/clickhouse-server:24
     ports:

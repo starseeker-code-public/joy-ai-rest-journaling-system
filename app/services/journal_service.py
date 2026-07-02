@@ -111,22 +111,25 @@ class JournalService:
         if not patch:
             return self.get_one(user_id, uid)
         patch['date'] = standard_now()
-        result = self.collection.find_one_and_update(
+        before = self.collection.find_one_and_update(
             {'id': uid, 'user_id': user_id},
             {'$set': patch},
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
-        if result is None:
+        if before is None:
             return None
-        result = strip_doc(result)
-        self._publish(JOURNAL_UPDATED, result)
+        result = {**strip_doc(before), **patch}
+        # previous_date lets consumers refresh the week the entry moved from
+        self._publish(JOURNAL_UPDATED, {**result, 'previous_date': before.get('date')})
         return result
 
     def delete(self, user_id: str, uid: str) -> bool:
-        deleted = self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0
-        if deleted:
-            self._publish(JOURNAL_DELETED, {'id': uid, 'user_id': user_id})
-        return deleted
+        doc = self.collection.find_one_and_delete({'id': uid, 'user_id': user_id})
+        if doc is None:
+            return False
+        # date lets downstream consumers (e.g. insights) target the right week
+        self._publish(JOURNAL_DELETED, {'id': uid, 'user_id': user_id, 'date': doc.get('date')})
+        return True
 
     def set_sentiment(
         self,

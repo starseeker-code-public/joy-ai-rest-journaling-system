@@ -143,13 +143,16 @@ def test_analysis_worker_publishes_analyzed_event():
     analysis = MagicMock()
     analysis.analyze.return_value = {'label': 'positive', 'score': 0.9}
     journal = MagicMock()
-    journal.set_sentiment.return_value = {'id': 'e1'}
+    journal.set_sentiment.return_value = {'id': 'e1', 'date': '2026-07-01T10:00:00+00:00'}
     publisher = MagicMock()
     handler = make_analysis_handler(analysis, journal, publisher=publisher)
     handler('journal.created', {'id': 'e1', 'user_id': 'u1', 'content': 'Nice'})
     routing_key, payload = publisher.publish.call_args.args
     assert routing_key == 'journal.analyzed'
-    assert payload == {'id': 'e1', 'user_id': 'u1', 'sentiment': {'label': 'positive', 'score': 0.9}}
+    assert payload == {
+        'id': 'e1', 'user_id': 'u1', 'date': '2026-07-01T10:00:00+00:00',
+        'sentiment': {'label': 'positive', 'score': 0.9},
+    }
 
 
 def test_analysis_worker_skips_publish_when_entry_gone():

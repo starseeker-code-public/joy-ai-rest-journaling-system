@@ -38,6 +38,7 @@ def make_handler(analysis_service: AnalysisService, journal_service: JournalServ
                 publisher.publish(JOURNAL_ANALYZED, {
                     'id': journal_id,
                     'user_id': user_id,
+                    'date': updated.get('date'),
                     'sentiment': result,
                 })
             except Exception:
