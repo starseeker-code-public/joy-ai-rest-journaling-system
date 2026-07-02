@@ -373,17 +373,17 @@ Standalone Progressive Web App client.
 -   Offline compose queue flushed on reconnect
 -   App manifest + icon; served by the nginx gateway at `/`
 
-## Planned
-
-### v0.19.x --- Kubernetes Manifests
+### v0.19.x --- Kubernetes Manifests *(done)*
 
 Cloud-native deployment.
 
--   One Deployment + Service per microservice
--   ConfigMap and Secret externalization
--   Horizontal Pod Autoscaler on journal and AI services
--   Helm chart or kustomize overlay
--   Load test with k6 to validate scaling
+-   One Deployment (+ Service where networked) per microservice (`k8s/base`)
+-   ConfigMap and Secret externalization (`secret.example.yaml` template)
+-   HPAs on the API and the analysis worker (CPU-based)
+-   Kustomize base + `overlays/dev` (single API replica)
+-   k6 load test (`k6/load.js`) wired to the README performance budgets
+
+## Planned
 
 ### v1.0.0 --- Public Release
 

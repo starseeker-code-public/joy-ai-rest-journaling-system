@@ -1,0 +1,167 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  labels: {app: consumer}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: consumer}
+  template:
+    metadata:
+      labels: {app: consumer}
+    spec:
+      containers:
+      - name: consumer
+        image: joy-app:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "consumer.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-indexer
+  labels: {app: search-indexer}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: search-indexer}
+  template:
+    metadata:
+      labels: {app: search-indexer}
+    spec:
+      containers:
+      - name: search-indexer
+        image: joy-app:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "search_indexer.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-sink
+  labels: {app: analytics-sink}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: analytics-sink}
+  template:
+    metadata:
+      labels: {app: analytics-sink}
+    spec:
+      containers:
+      - name: analytics-sink
+        image: joy-app:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "analytics_sink.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insight-worker
+  labels: {app: insight-worker}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: insight-worker}
+  template:
+    metadata:
+      labels: {app: insight-worker}
+    spec:
+      containers:
+      - name: insight-worker
+        image: joy-app:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "insight_worker.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analysis-worker
+  labels: {app: analysis-worker}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: analysis-worker}
+  template:
+    metadata:
+      labels: {app: analysis-worker}
+    spec:
+      containers:
+      - name: analysis-worker
+        image: joy-ai:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "analysis_worker.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 2Gi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transcription-worker
+  labels: {app: transcription-worker}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: transcription-worker}
+  template:
+    metadata:
+      labels: {app: transcription-worker}
+    spec:
+      containers:
+      - name: transcription-worker
+        image: joy-ai:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "transcription_worker.py"]
+
+        envFrom:
+        - configMapRef:
+            name: joy-config
+        - secretRef:
+            name: joy-secrets
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: "1", memory: 2Gi}

@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-init
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mc
+        image: minio/mc
+        command: ["/bin/sh", "-c"]
+        args:
+        - mc alias set joy http://minio:9000 "$STORAGE_ACCESS_KEY" "$STORAGE_SECRET_KEY"
+          && mc mb --ignore-existing joy/joy-attachments
+        envFrom:
+        - secretRef:
+            name: joy-secrets
