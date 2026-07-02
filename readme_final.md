@@ -260,17 +260,18 @@ Make journal content searchable.
 -   Filter by tags, date range, kind; result limit capped at 100
 -   Tests using a fake OpenSearch client
 
-## Planned
-
-### v0.8.x --- Analytics Store (ClickHouse)
+### v0.8.x --- Analytics Store (ClickHouse) *(done)*
 
 Aggregate analytics separated from the operational database.
 
--   Add ClickHouse container and schema for journal analytics events
--   Event sink mirroring sentiment and tag events from RabbitMQ
--   `/api/analytics/mood-trend` endpoint
+-   ClickHouse container and `journal_events` MergeTree schema
+-   `journal.analyzed` event published by the analysis worker
+-   analytics_sink worker mirroring created/updated/analyzed events
+-   `/api/analytics/mood-trend` endpoint (daily average mood)
 -   `/api/analytics/tag-frequency` endpoint
--   Tests against a ClickHouse test container
+-   Tests with a fake ClickHouse client; live verification via compose
+
+## Planned
 
 ### v0.9.x --- Insight Service
 

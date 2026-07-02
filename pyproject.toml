@@ -1,6 +1,6 @@
 [project]
 name = "joy-ai-manifestation-platform"
-version = "0.7.0"
+version = "0.8.0"
 description = "Journaling backend — Flask + MongoDB + RabbitMQ event bus."
 requires-python = ">=3.11"
 
@@ -12,6 +12,7 @@ dependencies = [
     "pyjwt",
     "pika",
     "opensearch-py",
+    "clickhouse-connect",
 ]
 
 [tool.setuptools.packages.find]

@@ -6,7 +6,7 @@ import mongomock
 from app.routes.journal_routes import register_journal_routes
 from app.services.journal_service import JournalService
 from app.services.search_service import SearchService, INDEX_NAME
-import search_indexer
+from app.utils import retry as retry_module
 from search_indexer import backfill, make_handler
 from tests.conftest import register_and_login as _register_and_login
 
@@ -153,7 +153,7 @@ def test_handler_skips_malformed_payloads(service, fake_client):
 
 
 def test_handler_retries_transient_failures(service, fake_client, monkeypatch):
-    monkeypatch.setattr(search_indexer.time, 'sleep', lambda s: None)
+    monkeypatch.setattr(retry_module.time, 'sleep', lambda s: None)
     failures = {'left': 2}
     original = fake_client.index
 
@@ -169,7 +169,7 @@ def test_handler_retries_transient_failures(service, fake_client, monkeypatch):
 
 
 def test_handler_raises_after_exhausting_retries(service, fake_client, monkeypatch):
-    monkeypatch.setattr(search_indexer.time, 'sleep', lambda s: None)
+    monkeypatch.setattr(retry_module.time, 'sleep', lambda s: None)
 
     def always_fail(index, id, body):
         raise ConnectionError('opensearch down')

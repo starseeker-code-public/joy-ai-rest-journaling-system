@@ -9,6 +9,7 @@ from app.routes.journal_routes import register_journal_routes
 from app.routes.auth_routes import register_auth_routes
 from app.routes.habit_routes import register_habit_routes
 from app.routes.goal_routes import register_goal_routes
+from app.routes.analytics_routes import register_analytics_routes
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
 
@@ -40,6 +41,7 @@ def create_app() -> Flask:
     register_auth_routes(app)
     register_habit_routes(app)
     register_goal_routes(app)
+    register_analytics_routes(app)
 
     @app.route('/health', methods=['GET'])
     def health():

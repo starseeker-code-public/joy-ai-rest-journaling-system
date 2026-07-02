@@ -5,36 +5,14 @@ indexed by id), so entries created before the indexer first ran, or while it
 was down, become searchable. After that it consumes journal.* events.
 """
 import logging
-import time
 from dotenv import load_dotenv
 
 from app.utils.event_consumer import EventConsumer
 from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
+from app.utils.retry import with_retry
 from app.services.search_service import SearchService
 
 logger = logging.getLogger('joy.search_indexer')
-
-MAX_ATTEMPTS = 5
-BACKOFF_BASE_SECONDS = 1
-
-
-def _with_retry(operation, description: str):
-    """Retry transient search-backend failures with exponential backoff.
-
-    Re-raises after the last attempt so the consumer nacks the message
-    instead of acking a write that never happened.
-    """
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            return operation()
-        except Exception:
-            if attempt == MAX_ATTEMPTS:
-                logger.exception('%s failed after %d attempts', description, MAX_ATTEMPTS)
-                raise
-            delay = BACKOFF_BASE_SECONDS * 2 ** (attempt - 1)
-            logger.warning('%s failed (attempt %d/%d), retrying in %ds',
-                           description, attempt, MAX_ATTEMPTS, delay)
-            time.sleep(delay)
 
 
 def make_handler(search_service: SearchService):
@@ -43,11 +21,11 @@ def make_handler(search_service: SearchService):
             logger.warning('skipping malformed payload for %s', routing_key)
             return
         if routing_key == JOURNAL_DELETED:
-            _with_retry(lambda: search_service.delete_entry(payload['id']),
+            with_retry(lambda: search_service.delete_entry(payload['id']),
                         f'delete journal_id={payload["id"]}')
             logger.info('deleted journal_id=%s from index', payload['id'])
         else:
-            _with_retry(lambda: search_service.index_entry(payload),
+            with_retry(lambda: search_service.index_entry(payload),
                         f'index journal_id={payload["id"]}')
             logger.info('indexed journal_id=%s (%s)', payload['id'], routing_key)
     return handle
@@ -79,8 +57,8 @@ def main() -> None:
     # in RabbitMQ instead of being dropped by the exchange.
     consumer.declare()
 
-    _with_retry(search.ensure_index, 'ensure index')
-    indexed = _with_retry(lambda: backfill(search, get_db()['journals']), 'backfill')
+    with_retry(search.ensure_index, 'ensure index')
+    indexed = with_retry(lambda: backfill(search, get_db()['journals']), 'backfill')
     logger.info('Backfill complete: %d entries indexed', indexed)
 
     handler = make_handler(search)
