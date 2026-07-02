@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from dotenv import load_dotenv
 
 from app.utils.event_consumer import EventConsumer
+from app.utils.logging_config import configure_logging
 from app.utils.events import JOURNAL_ANALYZED, JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
 from app.utils.retry import with_retry
 from app.utils.tools import utc_today
@@ -91,10 +92,7 @@ def run_scheduler(insight_service: InsightService, interval_seconds: int, stop_e
 
 def main() -> None:
     load_dotenv()
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-    )
+    configure_logging()
     insights = InsightService()
     interval = int(os.getenv('INSIGHT_SCHEDULER_INTERVAL', str(DEFAULT_SCHEDULER_INTERVAL)))
     # The scheduler gets its own service (and thus its own ClickHouse session):

@@ -13,6 +13,8 @@ from app.routes.goal_routes import register_goal_routes
 from app.routes.analytics_routes import register_analytics_routes
 from app.routes.insight_routes import register_insight_routes
 from app.routes.health_routes import register_health_routes
+from app.utils.logging_config import configure_logging
+from app.utils.request_logging import register_request_logging
 from app.utils.event_publisher import EventPublisher
 from app.services.search_service import SearchService
 from app.utils.redis_rate_limiter import RedisRateLimiter
@@ -38,7 +40,9 @@ def _check_secret_key() -> None:
 
 def create_app() -> Flask:
     _check_secret_key()
+    configure_logging()
     app = Flask(__name__)
+    register_request_logging(app)
     # Trust one proxy hop (the nginx gateway) so request.remote_addr is the
     # real client IP — otherwise the login rate limiter would collapse every
     # gateway user into a single bucket.

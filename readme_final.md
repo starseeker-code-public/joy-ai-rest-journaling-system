@@ -302,16 +302,16 @@ Unified entry point in front of services.
 -   Aggregated `/health` reporting Mongo, Redis, RabbitMQ, OpenSearch, ClickHouse
 -   JWT verification stays service-side (nginx would need njs; documented)
 
-## Planned
-
-### v0.12.x --- Structured Logging (structlog)
+### v0.12.x --- Structured Logging (structlog) *(done)*
 
 Production-grade logs.
 
--   Switch standard logging to structlog
--   Request-id middleware
--   JSON output mode toggled by environment
--   Per-request log context (user_id, path, status, duration)
+-   structlog config shared by the API and all workers (stdlib routed through it)
+-   Request-id middleware (honors inbound `X-Request-ID`, echoes it back)
+-   JSON output via `LOG_FORMAT=json`; console renderer by default
+-   Per-request log context (request_id, user_id, path, status, duration_ms)
+
+## Planned
 
 ### v0.13.x --- Metrics (Prometheus)
 

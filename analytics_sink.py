@@ -3,6 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 from app.utils.event_consumer import EventConsumer
+from app.utils.logging_config import configure_logging
 from app.utils.events import JOURNAL_ANALYZED, JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
 from app.utils.retry import with_retry
 from app.services.analytics_service import AnalyticsService
@@ -25,10 +26,7 @@ def make_handler(analytics_service: AnalyticsService):
 
 def main() -> None:
     load_dotenv()
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-    )
+    configure_logging()
     analytics = AnalyticsService()
     with_retry(analytics.ensure_schema, 'ensure schema')
 

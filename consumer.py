@@ -4,11 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.utils.event_consumer import EventConsumer
+from app.utils.logging_config import configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-)
+configure_logging()
 logger = logging.getLogger('joy.consumer')
 
 

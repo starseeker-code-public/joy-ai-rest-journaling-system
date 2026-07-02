@@ -3,6 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 from app.utils.event_consumer import EventConsumer
+from app.utils.logging_config import configure_logging
 from app.utils.event_publisher import EventPublisher
 from app.utils.events import JOURNAL_ANALYZED, JOURNAL_CREATED
 from app.services.analysis_service import AnalysisService
@@ -48,10 +49,7 @@ def make_handler(analysis_service: AnalysisService, journal_service: JournalServ
 
 def main() -> None:
     load_dotenv()
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-    )
+    configure_logging()
     analysis = AnalysisService()
     journal_service = JournalService()
     publisher = EventPublisher()
