@@ -49,6 +49,9 @@ function logout() {
 
 // ---- offline queue --------------------------------------------------------
 
+let queueSeq = 0;
+let flushing = false;
+
 function readQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; }
   catch { return []; }
@@ -56,25 +59,47 @@ function readQueue() {
 
 function writeQueue(queue) { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); }
 
+function enqueueEntry(entry) {
+  // Stable per-item id so a flush removes exactly the items it processed,
+  // without clobbering entries appended while it was in flight.
+  const qid = `${Date.now()}-${queueSeq++}`;
+  writeQueue([...readQueue(), { ...entry, _qid: qid }]);
+}
+
+function removeFromQueue(processedIds) {
+  // Re-read at write time: entries may have been appended (or the queue
+  // cleared by logout) since the flush snapshot was taken.
+  if (!token()) return;  // logged out mid-flush: don't resurrect its queue
+  writeQueue(readQueue().filter((e) => !processedIds.has(e._qid)));
+}
+
 async function flushQueue() {
+  if (flushing || !token()) return;
   const queue = readQueue();
-  if (!queue.length || !token()) return;
-  const remaining = [];
-  for (const entry of queue) {
-    try {
-      await api('/api/journals', { method: 'POST', body: JSON.stringify(entry) });
-    } catch (err) {
-      if (err instanceof TypeError) {
-        remaining.push(entry); // network failure: retry on next reconnect
-      } else {
-        // Server rejected it (4xx): keep it out of the queue or it would
-        // poison every future flush
-        console.warn('Dropped rejected offline entry:', err.message, entry);
+  if (!queue.length) return;
+  flushing = true;
+  const processed = new Set();
+  let posted = 0;
+  try {
+    for (const item of queue) {
+      const { _qid, ...entry } = item;
+      try {
+        await api('/api/journals', { method: 'POST', body: JSON.stringify(entry) });
+        processed.add(_qid);
+        posted++;
+      } catch (err) {
+        if (err instanceof TypeError) break;  // offline again: retry rest later
+        // Server rejected it (4xx) or session expired: drop so it can't
+        // poison every future flush. (Session-expiry also clears the queue.)
+        console.warn('Dropped offline entry:', err.message, entry);
+        processed.add(_qid);
       }
     }
+  } finally {
+    removeFromQueue(processed);
+    flushing = false;
   }
-  writeQueue(remaining);
-  if (remaining.length < queue.length) await renderEntries();
+  if (posted) await renderEntries();
 }
 
 // ---- views ----------------------------------------------------------------
@@ -165,7 +190,7 @@ $('compose').addEventListener('submit', async (event) => {
     saved = true;
   } catch (err) {
     if (err instanceof TypeError) { // fetch-level network failure: queue for later
-      writeQueue([...readQueue(), entry]);
+      enqueueEntry(entry);
       $('offline-banner').hidden = false;
     } else {
       $('compose-error').textContent = err.message;
@@ -178,13 +203,17 @@ $('compose').addEventListener('submit', async (event) => {
 });
 
 let searchTimer;
+let searchSeq = 0;
 $('search').addEventListener('input', (event) => {
   clearTimeout(searchTimer);
   const q = event.target.value.trim();
+  const seq = ++searchSeq;  // only the latest request may render
   searchTimer = setTimeout(async () => {
-    if (!q) return renderEntries();
     try {
-      renderEntries(await api(`/api/journals/search?q=${encodeURIComponent(q)}`));
+      const results = q
+        ? await api(`/api/journals/search?q=${encodeURIComponent(q)}`)
+        : await api('/api/journals').then((e) => e.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
+      if (seq === searchSeq) renderEntries(results);  // drop stale responses
     } catch { /* search backend down: keep current list */ }
   }, 300);
 });

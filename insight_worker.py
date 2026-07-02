@@ -30,6 +30,10 @@ DEFAULT_SCHEDULER_INTERVAL = 3600
 # moment to land the write in ClickHouse before we aggregate. Any race that
 # still slips through self-heals on the next event or scheduler tick.
 DEFAULT_REFRESH_DELAY = 2.0
+# How many trailing weeks the scheduler rebuilds each tick. Must cover the
+# window an event race (or a backdated edit) could leave stale; a handful of
+# weeks is cheap and guarantees eventual consistency for recent history.
+SCHEDULER_WEEKS = int(os.getenv('INSIGHT_SCHEDULER_WEEKS', '5'))
 
 
 def _parse_day(value) -> date | None:
@@ -73,15 +77,19 @@ def make_handler(insight_service: InsightService, delay_seconds: float | None = 
     return handle
 
 
-def run_scheduler(insight_service: InsightService, interval_seconds: int, stop_event=None):
-    """Rebuild the previous and current weeks for all active users, forever.
+def run_scheduler(insight_service: InsightService, interval_seconds: int, stop_event=None,
+                  weeks: int = SCHEDULER_WEEKS):
+    """Rebuild the trailing `weeks` weeks for all active users, forever.
 
-    The current-week pass also repairs any staleness left by event races.
+    Covering a window (not just the previous week) means any staleness left by
+    an event race, an analytics-sink lag, or a backdated edit is eventually
+    repaired — oldest week first so the current week reflects the latest data.
     """
     stop_event = stop_event or threading.Event()
     while not stop_event.is_set():
         current_week = week_start_of(utc_today())
-        for week in (current_week - timedelta(days=7), current_week):
+        for n in range(weeks - 1, -1, -1):
+            week = current_week - timedelta(days=7 * n)
             try:
                 count = insight_service.generate_for_active_users(week)
                 logger.info('scheduler: generated %d insights for week of %s',

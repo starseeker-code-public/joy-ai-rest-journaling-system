@@ -35,7 +35,14 @@ class EventConsumer:
         self._channel = None
 
     def _default_connection_factory(self):
-        return pika.BlockingConnection(pika.URLParameters(self.url))
+        params = pika.URLParameters(self.url)
+        # Handlers run synchronously on this connection's thread and some
+        # (Whisper transcription) take minutes; with heartbeats enabled the
+        # broker would drop the connection mid-callback and redeliver the
+        # never-acked message forever. Disable heartbeats; TCP keepalive and
+        # the reconnect loop still recover from genuinely dead peers.
+        params.heartbeat = 0
+        return pika.BlockingConnection(params)
 
     def _setup(self):
         if self._connection is None or self._connection.is_closed:

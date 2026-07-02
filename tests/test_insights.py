@@ -162,10 +162,11 @@ def test_scheduler_generates_previous_week_and_stops():
         return 1
 
     service.generate_for_active_users.side_effect = stop_after_call
-    run_scheduler(service, interval_seconds=0, stop_event=stop)
+    run_scheduler(service, interval_seconds=0, stop_event=stop, weeks=3)
     weeks = [c.args[0] for c in service.generate_for_active_users.call_args_list]
     current = week_start_of(utc_today())
-    assert weeks == [current - timedelta(days=7), current]
+    # One full pass, oldest week first, ending at the current week
+    assert weeks == [current - timedelta(days=14), current - timedelta(days=7), current]
 
 
 def test_scheduler_survives_generation_failure():

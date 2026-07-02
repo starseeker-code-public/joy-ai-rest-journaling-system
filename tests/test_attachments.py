@@ -294,3 +294,15 @@ def test_storage_outage_returns_503(mongo, make_app):
         res = client.post(f'/api/journals/{entry["id"]}/attachments',
                           json={'filename': 'f.png'}, headers=headers)
         assert res.status_code == 503
+
+def test_sanitize_rejects_dot_segments():
+    # '.' and '..' are invalid S3 object-name segments; must not pass through
+    assert _sanitize_filename('.') == 'file'
+    assert _sanitize_filename('..') == 'file'
+    assert _sanitize_filename('  ..  ') == 'file'
+    assert _sanitize_filename('../../etc/passwd') == '.._.._etc_passwd'
+
+
+def test_presign_upload_with_dot_filename_is_usable(storage):
+    grant = storage.presign_upload('u1', '..')
+    assert grant['object_key'].endswith('/file')  # sanitized, not '..'

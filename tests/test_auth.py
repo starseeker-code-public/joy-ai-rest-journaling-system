@@ -187,3 +187,22 @@ def test_me_with_tampered_signature_returns_401(client):
     tampered = '.'.join(parts[:2] + ['tamperedsignature'])
     res = client.get('/auth/me', headers={'Authorization': f'Bearer {tampered}'})
     assert res.status_code == 401
+
+
+# --- input hardening (final review) ---
+
+def test_login_rejects_non_string_email_no_injection(client):
+    # A Mongo operator dict as email must not reach the query
+    res = client.post('/auth/login', json={'email': {'$gt': ''}, 'password': 'whatever12'})
+    assert res.status_code == 400
+
+
+def test_login_rejects_non_string_password(client):
+    client.post('/auth/register', json={'email': 'x@y.zz', 'password': 'secret123'})
+    res = client.post('/auth/login', json={'email': 'x@y.zz', 'password': {'x': 1}})
+    assert res.status_code == 400
+
+
+def test_auth_non_object_body_returns_400(client):
+    assert client.post('/auth/login', data='"hi"', content_type='application/json').status_code == 400
+    assert client.post('/auth/register', data='[1,2]', content_type='application/json').status_code == 400

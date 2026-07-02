@@ -2,7 +2,11 @@
    with cache fallback so past entries stay readable offline. */
 'use strict';
 
-const SHELL_CACHE = 'joy-shell-v1';
+// Bump BUILD on each frontend deploy so activate() purges the old shell and
+// clients pick up new app.js/index.html/styles.css instead of serving stale
+// cache-first copies forever.
+const BUILD = '2026-07-03';
+const SHELL_CACHE = `joy-shell-${BUILD}`;
 const DATA_CACHE = 'joy-data-v1';
 const SHELL = ['/', '/index.html', '/app.js', '/styles.css', '/manifest.webmanifest', '/icon.svg'];
 
@@ -39,8 +43,19 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
 
-  // Shell: cache first
+  // Shell: stale-while-revalidate — serve cached instantly, refresh in the
+  // background so a redeploy (new BUILD) is picked up without a hard reload.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.open(SHELL_CACHE).then((cache) =>
+      cache.match(event.request).then((cached) => {
+        const network = fetch(event.request)
+          .then((response) => {
+            if (response.ok) cache.put(event.request, response.clone());
+            return response;
+          })
+          .catch(() => cached);
+        return cached || network;
+      })
+    )
   );
 });

@@ -3,7 +3,20 @@ from app.services.user_service import UserService, InvalidCredentials
 from app.utils.auth import get_bearer_token
 from app.utils.jwt_utils import issue_token, decode_token
 from app.utils.rate_limiter import RateLimiter
-from app.utils.tools import strip_doc
+from app.utils.tools import json_body, strip_doc
+
+
+def _credentials(data):
+    """Extract (email, password) only if both are strings; else (None, None).
+
+    Guards against non-object bodies and, critically, against NoSQL operator
+    injection — a dict like {'$gt': ''} must never reach a Mongo query.
+    """
+    email = data.get('email')
+    password = data.get('password')
+    if not isinstance(email, str) or not isinstance(password, str):
+        return None, None
+    return email, password
 
 
 def register_auth_routes(app, user_service=None, login_limiter=None, user_cache=None):
@@ -14,11 +27,11 @@ def register_auth_routes(app, user_service=None, login_limiter=None, user_cache=
 
     @app.route('/auth/register', methods=['POST'])
     def register():
-        data = request.json
-        if not data or not data.get('email') or not data.get('password'):
+        email, password = _credentials(json_body())
+        if not email or not password:
             return jsonify({'error': 'Email and password required'}), 400
         try:
-            user = user_service.register(data['email'], data['password'])
+            user = user_service.register(email, password)
         except InvalidCredentials as e:
             return jsonify({'error': str(e)}), 400
         if user is None:
@@ -30,11 +43,11 @@ def register_auth_routes(app, user_service=None, login_limiter=None, user_cache=
         ip = request.remote_addr or 'unknown'
         if not login_limiter.allow(f'login:{ip}'):
             return jsonify({'error': 'Too many attempts, try again later'}), 429
-        data = request.json
-        if not data or not data.get('email') or not data.get('password'):
+        email, password = _credentials(json_body())
+        if not email or not password:
             return jsonify({'error': 'Email and password required'}), 400
-        user = user_service.get_by_email(data['email'])
-        if not user or not user_service.verify_password(user['password_hash'], data['password']):
+        user = user_service.get_by_email(email)
+        if not user or not user_service.verify_password(user['password_hash'], password):
             return jsonify({'error': 'Invalid credentials'}), 401
         token = issue_token(user['id'])
         return jsonify({'token': token, 'user': strip_doc(user, 'password_hash')}), 200

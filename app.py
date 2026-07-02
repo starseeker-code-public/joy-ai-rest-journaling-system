@@ -29,7 +29,9 @@ DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'
 
 
 def _is_debug() -> bool:
-    return os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
+    # Default OFF: a bare `python app.py` must never expose the Werkzeug
+    # interactive debugger. Dev opts in explicitly (compose/.env set DEBUG=true).
+    return os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
 
 def _check_secret_key() -> None:

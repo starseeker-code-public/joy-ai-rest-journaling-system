@@ -33,7 +33,11 @@ _FILENAME_SAFE = re.compile(r'[^A-Za-z0-9._-]+')
 
 def _sanitize_filename(filename: str) -> str:
     cleaned = _FILENAME_SAFE.sub('_', filename.strip().replace('/', '_'))
-    return cleaned[-128:] or 'file'
+    cleaned = cleaned[-128:]
+    # '.'/'..' are rejected by S3 object-name validation; treat them as empty
+    if cleaned in ('', '.', '..'):
+        return 'file'
+    return cleaned
 
 
 def _make_client(endpoint: str):
