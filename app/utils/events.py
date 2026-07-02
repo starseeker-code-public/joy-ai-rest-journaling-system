@@ -5,3 +5,5 @@ EXCHANGE_TYPE = 'topic'
 
 # Routing keys
 JOURNAL_CREATED = 'journal.created'
+JOURNAL_UPDATED = 'journal.updated'
+JOURNAL_DELETED = 'journal.deleted'

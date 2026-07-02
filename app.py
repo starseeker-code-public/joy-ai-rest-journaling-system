@@ -10,6 +10,7 @@ from app.routes.auth_routes import register_auth_routes
 from app.routes.habit_routes import register_habit_routes
 from app.routes.goal_routes import register_goal_routes
 from app.utils.event_publisher import EventPublisher
+from app.services.search_service import SearchService
 
 DEFAULT_SECRET_KEY = 'dev-secret-key-change-me-in-production-12345'
 
@@ -34,7 +35,8 @@ def create_app() -> Flask:
     app = Flask(__name__)
     publisher = EventPublisher()
     atexit.register(publisher.close)
-    register_journal_routes(app, publisher=publisher)
+    # Client construction is lazy: no connection happens until a search runs
+    register_journal_routes(app, publisher=publisher, search_service=SearchService())
     register_auth_routes(app)
     register_habit_routes(app)
     register_goal_routes(app)

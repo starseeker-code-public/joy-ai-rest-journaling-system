@@ -1,10 +1,14 @@
-from flask import jsonify, g
+import logging
+from flask import jsonify, g, request
 from app.services.journal_service import JournalService
 from app.utils.auth import require_auth
 from app.utils.tools import json_body
+from app.utils.validators import parse_iso_date
+
+logger = logging.getLogger(__name__)
 
 
-def register_journal_routes(app, service=None, publisher=None):
+def register_journal_routes(app, service=None, publisher=None, search_service=None):
     if service is None:
         service = JournalService(publisher=publisher)
 
@@ -31,6 +35,43 @@ def register_journal_routes(app, service=None, publisher=None):
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
         return jsonify(entry), 201
+
+    @app.route('/api/journals/search', methods=['GET'])
+    @require_auth
+    def search_entries():
+        if search_service is None:
+            return jsonify({'error': 'Search is not available'}), 503
+        tags_param = request.args.get('tags', '')
+        tags = [t for t in (t.strip() for t in tags_param.split(',')) if t] or None
+        try:
+            limit = int(request.args.get('limit', '20'))
+        except ValueError:
+            return jsonify({'error': 'limit must be a positive integer'}), 400
+        if limit < 1:
+            return jsonify({'error': 'limit must be a positive integer'}), 400
+        try:
+            date_from = request.args.get('from')
+            date_to = request.args.get('to')
+            if date_from:
+                parse_iso_date(date_from, 'from')
+            if date_to:
+                parse_iso_date(date_to, 'to')
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        try:
+            results = search_service.search(
+                g.user_id,
+                q=request.args.get('q'),
+                tags=tags,
+                kind=request.args.get('kind'),
+                date_from=date_from,
+                date_to=date_to,
+                limit=limit,
+            )
+        except Exception:
+            logger.exception('Search backend unavailable')
+            return jsonify({'error': 'Search is temporarily unavailable'}), 503
+        return jsonify(results), 200
 
     @app.route('/api/journals/<uid>', methods=['GET'])
     @require_auth

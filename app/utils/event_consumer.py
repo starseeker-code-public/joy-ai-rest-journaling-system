@@ -60,6 +60,14 @@ class EventConsumer:
             logger.exception('Handler failed for %s', method.routing_key)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
+    def declare(self) -> None:
+        """Declare and bind the durable queue without consuming.
+
+        Lets a worker ensure events start buffering (e.g. before a slow
+        startup task like a backfill) ahead of its consume() loop.
+        """
+        self._setup()
+
     def consume(self, handler) -> None:
         """Blocks. Invokes handler(routing_key, payload) for each message."""
         self._setup()

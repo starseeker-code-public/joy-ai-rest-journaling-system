@@ -249,17 +249,18 @@ Third domain entity: goals with milestones.
 -   Progress calculation derived from milestones
 -   Tests for ownership isolation and progress math
 
-## Planned
-
-### v0.7.x --- Full-text Search (OpenSearch)
+### v0.7.x --- Full-text Search (OpenSearch) *(done)*
 
 Make journal content searchable.
 
--   Add OpenSearch container
--   Indexing pipeline triggered by `journal.created` / `journal.updated`
--   `/api/journals/search?q=` endpoint
--   Filter by tags, date range, kind
--   Tests using a mocked OpenSearch client
+-   OpenSearch container with healthcheck
+-   `journal.updated` / `journal.deleted` events emitted by JournalService
+-   search_indexer worker syncing the index from the event bus
+-   `/api/journals/search?q=` endpoint (503 when the backend is down)
+-   Filter by tags, date range, kind; result limit capped at 100
+-   Tests using a fake OpenSearch client
+
+## Planned
 
 ### v0.8.x --- Analytics Store (ClickHouse)
 

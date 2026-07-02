@@ -10,6 +10,7 @@ services:
       MONGO_URL: mongodb://mongo:27017
       MONGO_DB: joy
       RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+      OPENSEARCH_URL: http://opensearch:9200
     depends_on:
       mongo:
         condition: service_healthy
@@ -57,6 +58,41 @@ services:
     volumes:
       - .:/app
 
+  search-indexer:
+    build: .
+    command: python search_indexer.py
+    environment:
+      RABBITMQ_URL: amqp://joy:joy@rabbitmq:5672/
+      OPENSEARCH_URL: http://opensearch:9200
+      # Needed for the startup backfill of pre-existing entries
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: joy
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   rabbitmq:
     image: rabbitmq:3-management
     ports:
@@ -77,3 +113,4 @@ services:
 volumes:
   mongo-data:
   rabbitmq-data:
+  opensearch-data:

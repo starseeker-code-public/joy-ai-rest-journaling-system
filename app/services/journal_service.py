@@ -3,7 +3,7 @@ from uuid import uuid4
 from pymongo import ReturnDocument
 from app.utils.tools import standard_now, strip_doc
 from app.utils.validators import require_string
-from app.utils.events import JOURNAL_CREATED
+from app.utils.events import JOURNAL_CREATED, JOURNAL_DELETED, JOURNAL_UPDATED
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
@@ -116,10 +116,17 @@ class JournalService:
             {'$set': patch},
             return_document=ReturnDocument.AFTER,
         )
-        return strip_doc(result) if result else None
+        if result is None:
+            return None
+        result = strip_doc(result)
+        self._publish(JOURNAL_UPDATED, result)
+        return result
 
     def delete(self, user_id: str, uid: str) -> bool:
-        return self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0
+        deleted = self.collection.delete_one({'id': uid, 'user_id': user_id}).deleted_count > 0
+        if deleted:
+            self._publish(JOURNAL_DELETED, {'id': uid, 'user_id': user_id})
+        return deleted
 
     def set_sentiment(
         self,
