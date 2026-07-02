@@ -29,7 +29,11 @@ def test_published_event_reaches_consumer_handler():
     publisher.publish('journal.created', {'id': 'abc', 'title': 'Hello'})
     consumer.consume(lambda rk, payload: received.append((rk, payload)))
 
-    assert received == [('journal.created', {'id': 'abc', 'title': 'Hello'})]
+    assert len(received) == 1
+    routing_key, payload = received[0]
+    assert routing_key == 'journal.created'
+    assert len(payload.pop('event_id')) == 36  # stamped by the publisher
+    assert payload == {'id': 'abc', 'title': 'Hello'}
     assert cons_conn.channel().acked == [1]
     assert cons_conn.channel().nacked == []
 

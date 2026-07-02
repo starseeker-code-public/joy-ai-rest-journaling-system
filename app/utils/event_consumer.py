@@ -1,10 +1,13 @@
 import json
 import logging
 import os
+import time
 import pika
 from app.utils.events import EXCHANGE_NAME, EXCHANGE_TYPE
 
 logger = logging.getLogger(__name__)
+
+RECONNECT_MAX_DELAY_SECONDS = 30
 
 
 class EventConsumer:
@@ -69,16 +72,36 @@ class EventConsumer:
         self._setup()
 
     def consume(self, handler) -> None:
-        """Blocks. Invokes handler(routing_key, payload) for each message."""
-        self._setup()
-        self._channel.basic_consume(
-            queue=self.queue_name,
-            on_message_callback=lambda ch, m, p, b: self._on_message(handler, ch, m, p, b),
-        )
-        self._channel.start_consuming()
+        """Blocks. Invokes handler(routing_key, payload) for each message.
+
+        Reconnects with backoff when the broker drops the connection
+        (restart, network blip); the durable queue preserves messages
+        across the gap. KeyboardInterrupt still propagates.
+        """
+        delay = 1
+        while True:
+            try:
+                self._setup()
+                self._channel.basic_consume(
+                    queue=self.queue_name,
+                    on_message_callback=lambda ch, m, p, b: self._on_message(handler, ch, m, p, b),
+                )
+                delay = 1  # connected: reset the backoff
+                self._channel.start_consuming()
+                return  # stopped cleanly (e.g. stop_consuming)
+            except pika.exceptions.AMQPError:
+                logger.warning('Broker connection lost; reconnecting in %ds', delay, exc_info=True)
+                self.close()
+                time.sleep(delay)
+                delay = min(delay * 2, RECONNECT_MAX_DELAY_SECONDS)
 
     def close(self) -> None:
-        if self._connection and self._connection.is_open:
-            self._connection.close()
+        """Never raises: closing a half-dead connection can itself throw,
+        and the reconnect loop relies on close() being safe."""
+        try:
+            if self._connection and self._connection.is_open:
+                self._connection.close()
+        except Exception:
+            logger.debug('error closing dead connection', exc_info=True)
         self._connection = None
         self._channel = None

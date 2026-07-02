@@ -33,7 +33,10 @@ def test_publish_sends_json_payload_with_routing_key():
     call = channel.basic_publish.call_args
     assert call.kwargs['exchange'] == EXCHANGE_NAME
     assert call.kwargs['routing_key'] == 'journal.created'
-    assert json.loads(call.kwargs['body']) == {'id': 'abc', 'title': 'Hello'}
+    payload = json.loads(call.kwargs['body'])
+    event_id = payload.pop('event_id')
+    assert len(event_id) == 36  # publisher stamps a per-event id
+    assert payload == {'id': 'abc', 'title': 'Hello'}
 
 
 def test_publish_uses_persistent_delivery_mode():

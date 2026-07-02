@@ -22,13 +22,29 @@ from app.services.transcription_service import TranscriptionService
 logger = logging.getLogger('joy.transcription')
 
 
-def make_handler(transcription_service, journal_service, storage_service):
+def make_handler(transcription_service, journal_service, storage_service, ledger=None):
+    from app.services.ai_ledger import BUDGET_BLOCK, BUDGET_WARN
+
     def handle(routing_key: str, payload: dict) -> None:
         if not isinstance(payload, dict) or not all(
             payload.get(k) for k in ('id', 'user_id', 'attachment_id', 'object_key')
         ):
             logger.warning('skipping malformed payload for %s', routing_key)
             return
+        event_id = payload.get('event_id')
+        if ledger is not None:
+            status = ledger.budget_status(payload['user_id'])
+            if status == BUDGET_BLOCK:
+                logger.warning('budget exceeded, skipping transcription user_id=%s',
+                               payload['user_id'])
+                # Zero-cost row: the skip stays discoverable in /api/me/usage,
+                # and the user can re-POST /transcribe once the budget resets.
+                ledger.record(payload['user_id'], 'transcription_blocked', '-',
+                              entry_id=payload['id'],
+                              dedupe_key=f'blocked:{event_id}' if event_id else None)
+                return
+            if status == BUDGET_WARN:
+                logger.warning('budget nearly exhausted user_id=%s', payload['user_id'])
         suffix = os.path.splitext(payload['object_key'])[1] or '.audio'
         with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
             with_retry(
@@ -36,6 +52,13 @@ def make_handler(transcription_service, journal_service, storage_service):
                 f'download {payload["object_key"]}',
             )
             result = transcription_service.transcribe(tmp.name)
+        if ledger is not None:
+            ledger.record(
+                payload['user_id'], 'transcription', result['model'],
+                cost_usd=result['cost_usd'], entry_id=payload['id'],
+                duration_s=result['duration_s'],
+                dedupe_key=f'transcription:{event_id}' if event_id else None,
+            )
         # Retried: a transient Mongo blip must not discard a finished transcription
         updated = with_retry(
             lambda: journal_service.set_transcript(
@@ -61,7 +84,9 @@ def main() -> None:
     from app.utils.event_publisher import EventPublisher
     publisher = EventPublisher()
     journal_service = JournalService(publisher=publisher)
-    handler = make_handler(TranscriptionService(), journal_service, StorageService())
+    from app.services.ai_ledger import AILedger
+    handler = make_handler(TranscriptionService(), journal_service, StorageService(),
+                           ledger=AILedger())
     consumer = EventConsumer(
         queue_name='journal-transcription',
         routing_keys=[JOURNAL_VOICE_UPLOADED],

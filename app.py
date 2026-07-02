@@ -13,6 +13,7 @@ from app.routes.goal_routes import register_goal_routes
 from app.routes.analytics_routes import register_analytics_routes
 from app.routes.insight_routes import register_insight_routes
 from app.routes.health_routes import register_health_routes
+from app.routes.usage_routes import register_usage_routes
 from app.utils.logging_config import configure_logging
 from app.utils.request_logging import register_request_logging
 from app.utils.metrics import register_metrics
@@ -75,6 +76,7 @@ def create_app() -> Flask:
     register_analytics_routes(app, service=analytics)
     register_insight_routes(app)
     register_health_routes(app)
+    register_usage_routes(app)
     register_metrics(app, analytics_service=analytics)
 
     return app

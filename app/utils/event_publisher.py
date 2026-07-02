@@ -54,6 +54,11 @@ class EventPublisher:
         self._local.channel = None
 
     def publish(self, routing_key: str, payload: dict) -> None:
+        # A stable per-event id lets at-least-once consumers deduplicate
+        # side effects (e.g. the AI cost ledger) across redeliveries.
+        if isinstance(payload, dict) and 'event_id' not in payload:
+            from uuid import uuid4
+            payload = {**payload, 'event_id': str(uuid4())}
         body = json.dumps(payload).encode('utf-8')
         properties = pika.BasicProperties(
             content_type='application/json',

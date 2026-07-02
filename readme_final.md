@@ -352,17 +352,18 @@ Audio capture and transcription.
 -   Per-voice-note model/duration/cost recorded on the attachment (for v0.17)
 -   Tests with a stub transcriber
 
-## Planned
-
-### v0.17.x --- AI Cost Tracking
+### v0.17.x --- AI Cost Tracking *(done)*
 
 Per-user accounting of every AI call.
 
--   AICall ledger collection (model, tokens, cost_usd, request_id, user_id)
--   Wrapper recording usage on every AI call
+-   `ai_calls` ledger collection (kind, model, tokens, duration, cost_usd)
+-   Sentiment and transcription workers record every call
 -   `/api/me/usage` endpoint with daily and monthly rollups
--   Budget-enforcement hooks (soft warn, hard block)
+-   `AI_DAILY_BUDGET_USD` budget: soft warn at 80%, hard block at 100%
+-   Event consumers reconnect with backoff; compose restart policies added
 -   Tests
+
+## Planned
 
 ### v0.18.x --- PWA Frontend
 

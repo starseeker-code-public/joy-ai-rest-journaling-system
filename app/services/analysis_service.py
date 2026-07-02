@@ -13,6 +13,10 @@ class AnalysisService:
         self._pipeline = pipeline
         self._model_name = model_name
 
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
     def _get_pipeline(self):
         if self._pipeline is None:
             from transformers import pipeline as _pipeline
